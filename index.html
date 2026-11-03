@@ -47,6 +47,9 @@
   textarea { min-height:110px; resize:vertical; }
   .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   .row + .row { margin-top:8px; }
+  /* Own spacing: the (often hidden) save hint sits between the name box and these buttons,
+     so ".row + .row" doesn't apply; 12px also clears the focus outline */
+  .setups-controls .save-buttons { margin-top:12px; }
   .muted { color:var(--muted); }
   .small { font-size:12px; }
   .drop { border:2px dashed var(--border); border-radius:8px; padding:18px; text-align:center; color:var(--muted); cursor:pointer; }
@@ -198,8 +201,8 @@
         <div class="row" style="margin-top:8px">
           <input id="mapName" type="text" placeholder="Give it a name, e.g. Event feedback 2026" aria-label="Setup name" aria-describedby="saveHint">
         </div>
-        <p id="saveHint" class="small muted" style="margin:4px 0 0" hidden></p>
-        <div class="row">
+        <p id="saveHint" class="small muted" style="margin:6px 0 0" hidden></p>
+        <div class="row save-buttons">
           <button id="btnSave" class="primary">Save</button>
           <button id="btnSaveAs" title="Keep the existing setup unchanged and save these choices under a new name">Save as a copy</button>
           <button id="btnNew" title="Clear the columns and start a new setup">Start over</button>
