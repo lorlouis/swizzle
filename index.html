@@ -1,0 +1,3123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Swizzle - Google Form responses to Notion</title>
+<style>
+  :root {
+    --bg:#f6f7f9; --card:#fff; --fg:#1d2330; --muted:#5f6672; --border:#e3e6eb;
+    --accent:#2f6fec; --accent-fg:#fff; --warn:#b45309; --warn-bg:#fef3c7;
+    --danger:#c0392b; --ok:#15803d;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#14161a; --card:#1c1f25; --fg:#e6e8eb; --muted:#9aa3af; --border:#2c313a;
+      --accent:#5b8cff; --accent-fg:#0b1020; --warn:#fbbf24; --warn-bg:#3a2e10; --danger:#ef6b5b; --ok:#4ade80;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:14px 24px; border-bottom:1px solid var(--border); background:var(--card); display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  header h1 { margin:0; font-size:18px; }
+  header p { margin:0; color:var(--muted); }
+  main { display:grid; grid-template-columns:minmax(0,1fr); padding:16px 24px; max-width:1500px; margin:0 auto; }
+  .setups { display:grid; grid-template-columns:minmax(260px,360px) minmax(0,1fr); gap:20px; align-items:start; }
+  @media (max-width:800px) { .setups { grid-template-columns:1fr; } }
+  .setups-list { border-left:1px solid var(--border); padding-left:20px; min-height:100%; }
+  @media (max-width:800px) { .setups-list { border-left:none; padding-left:0; border-top:1px solid var(--border); padding-top:12px; } }
+  .setups .maplist { display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:8px; max-height:260px; overflow:auto; }
+  .setups .maplist li { margin-bottom:0; }
+  .backup { margin-top:14px; padding-top:10px; border-top:1px solid var(--border); }
+  .backup h3 { font-size:13px; margin:0 0 2px; }
+  .backup p { margin:0 0 6px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:16px; }
+  .card h2 { margin:0 0 12px; font-size:15px; display:flex; align-items:center; gap:8px; }
+  .h2-actions { margin-left:auto; display:flex; gap:6px; font-weight:normal; }
+  .step { display:inline-grid; place-items:center; width:22px; height:22px; border-radius:50%; background:var(--accent); color:var(--accent-fg); font-size:12px; flex:none; }
+  .step.done { background:var(--border); color:var(--muted); }
+  button { font:inherit; border:1px solid var(--border); background:var(--card); color:var(--fg); padding:5px 10px; border-radius:6px; cursor:pointer; white-space:nowrap; }
+  button:hover:not(:disabled) { border-color:var(--accent); }
+  button.primary { background:var(--accent); color:var(--accent-fg); border-color:var(--accent); }
+  button.danger { color:var(--danger); }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  button.icon { padding:2px 7px; }
+  button.selected { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; background:var(--bg); }
+  input[type=text], select, textarea { font:inherit; padding:5px 8px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--fg); width:100%; }
+  textarea { min-height:110px; resize:vertical; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .row + .row { margin-top:8px; }
+  .muted { color:var(--muted); }
+  .small { font-size:12px; }
+  .drop { border:2px dashed var(--border); border-radius:8px; padding:18px; text-align:center; color:var(--muted); cursor:pointer; }
+  .drop.over { border-color:var(--accent); color:var(--accent); }
+  table { border-collapse:collapse; width:100%; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  th { font-size:12px; color:var(--muted); font-weight:600; }
+  #mapBody tr.drag-over td { border-top:2px solid var(--accent); }
+  #mapBody tr.drag-after td { border-bottom:2px solid var(--accent); }
+  #mapBody tr.dragging { opacity:.4; }
+  .handle { cursor:grab; color:var(--muted); user-select:none; width:18px; }
+  .num { color:var(--muted); font-variant-numeric:tabular-nums; }
+  .sample { max-width:420px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); font-size:12px; margin-top:2px; }
+  td.flow { color:var(--accent); font-size:18px; text-align:center; width:24px; padding:6px 2px; }
+  .nowrap { white-space:nowrap; }
+  .warn { color:var(--warn); }
+  .ok { color:var(--ok); }
+  .badge { display:inline-block; padding:1px 7px; border-radius:10px; font-size:11px; background:var(--warn-bg); color:var(--warn); }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { border:1px solid var(--border); border-radius:12px; padding:2px 9px; font-size:12px; cursor:pointer; background:var(--bg); color:var(--fg); max-width:320px; overflow:hidden; text-overflow:ellipsis; }
+  .chip:hover { border-color:var(--accent); }
+  .preview { overflow:auto; max-height:420px; border:1px solid var(--border); border-radius:6px; }
+  .preview table { font-size:12px; }
+  .preview th { position:sticky; top:0; background:var(--card); white-space:nowrap; }
+  .preview td { max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .maplist { list-style:none; margin:0; padding:0; }
+  .maplist li { border:1px solid var(--border); border-radius:8px; padding:8px 10px; margin-bottom:8px; }
+  .maplist li.active { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; }
+  .maplist .name { font-weight:600; word-break:break-word; }
+  .maplist .actions { display:flex; gap:4px; margin-top:6px; flex-wrap:wrap; }
+  .warnings { margin:10px 0 0; padding-left:18px; color:var(--warn); font-size:13px; }
+  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--fg); color:var(--bg); padding:8px 14px; border-radius:6px; opacity:0; transition:opacity .2s; pointer-events:none; z-index:10; }
+  .toast.show { opacity:1; }
+  [hidden] { display:none !important; }
+  :is(button, input, select, textarea, summary, .drop, a):focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .help summary { cursor:pointer; }
+  .help ol { margin:10px 0; padding-left:20px; }
+  .help li { margin-bottom:6px; }
+  details > summary { cursor:pointer; }
+  button.big { padding:8px 16px; font-size:15px; }
+  .drop:hover { border-color:var(--accent); }
+  .file-ok { color:var(--ok); font-weight:600; }
+  input.need { border-color:var(--warn); box-shadow:0 0 0 2px var(--warn-bg); }
+  .rules, .replace { background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin:0 0 6px 46px; }
+  .rules + .replace { margin-top:6px; }
+  .rule-head { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .rule-head select { width:auto; max-width:420px; }
+  .rule { display:flex; gap:6px; align-items:center; flex-wrap:wrap; padding:3px 0; }
+  .rule select, .rule input[type=text] { width:auto; }
+  .rule input.ans { width:165px; }
+  .rule select.op { width:90px; }
+  .rule .num { width:auto; min-width:20px; }
+  .rule .picker { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .rule .picker select { max-width:260px; }
+  .rule.otherwise { margin-top:4px; padding-top:6px; border-top:1px dashed var(--border); }
+  .count { min-width:72px; }
+  .count.zero { color:var(--warn); }
+  .picker input[type=text] { margin-top:4px; }
+  #mapBody tr.has-extra > td { border-bottom:none; }
+  #mapBody tr.extra-row > td { padding-top:0; }
+  input.ordernum { width:40px; padding:3px 4px; text-align:center; font:inherit; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--fg); }
+  .num { width:60px; }
+  .textview { margin-top:16px; border-top:1px solid var(--border); padding-top:10px; }
+  .textview textarea { font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; min-height:260px; white-space:pre; }
+  .syntax { margin:6px 0; }
+  .syntax td { border:none; padding:2px 8px 2px 0; }
+  code { font:12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:var(--bg); border:1px solid var(--border); border-radius:4px; padding:0 4px; }
+  label.inline { display:inline-flex; gap:6px; align-items:center; cursor:pointer; }
+  .sheets-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:20px; margin-top:10px; }
+  @media (max-width:1250px) { .sheets-grid { grid-template-columns:1fr; } }
+  .sheets-grid h3 { font-size:13px; margin:0 0 6px; }
+  .sheets-grid ol { margin:0 0 8px; padding-left:18px; }
+  #sheetsIn { font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; min-height:130px; white-space:pre; }
+  .sheets-result { list-style:none; margin:10px 0 0; padding:0; font-size:13px; max-height:360px; overflow:auto; }
+  .sheets-result li { padding:4px 0; border-bottom:1px solid var(--border); }
+  .sheets-result li.good { color:var(--ok); }
+  .sheets-result li.warn { color:var(--warn); }
+  .sheets-result li.bad { color:var(--danger); }
+  .sheets-result li .small { color:var(--fg); opacity:.85; margin-top:2px; }
+  .mono { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; word-break:break-all; }
+  .sheets-opts label { display:inline-flex; gap:6px; align-items:center; }
+  .sheets-opts input[type=text] { width:220px; }
+  .sheets-opts #sheetsRow { width:64px; font:inherit; padding:4px 6px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--fg); }
+  .sheets-opts select { width:auto; }
+  .sheets-out { margin-top:8px; border:1px solid var(--border); border-radius:6px; max-height:360px; overflow:auto; }
+  .fx { display:grid; grid-template-columns:minmax(80px,28%) minmax(0,1fr) auto; gap:8px; align-items:center; padding:4px 8px; border-bottom:1px solid var(--border); font-size:12px; }
+  .fx:last-child { border-bottom:none; }
+  .fx-name { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .fx-formula { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block; }
+  .fx.bad .fx-formula { color:var(--danger); font-family:inherit; border:none; background:none; padding:0; }
+  .fx-note { grid-column:2 / 4; }
+  .check-card { border-color:var(--warn); }
+  .check-icon { display:inline-grid; place-items:center; width:22px; height:22px; border-radius:50%; background:var(--warn); color:var(--card); font-size:13px; font-weight:700; flex:none; }
+  .check-col { border:1px solid var(--border); border-radius:8px; margin-top:10px; }
+  .check-col > summary { padding:8px 12px; font-size:13px; }
+  .check-col > summary .muted { font-weight:normal; }
+  .check-show { padding:0 12px 8px; }
+  .check-item { padding:8px 12px; border-top:1px solid var(--border); font-size:13px; }
+  .check-item .ans-text { font-weight:600; background:var(--warn-bg); color:var(--warn); padding:0 5px; border-radius:4px; white-space:pre-wrap; }
+  .check-item .near { margin:4px 0 0; }
+  .check-item .row { margin-top:6px; }
+  .rules .unmatched-note { margin-top:6px; }
+  .rules .unmatched-note a { color:inherit; }
+  .preview td.flag { background:var(--warn-bg); color:var(--warn); }
+  .storage-warn { border-color:var(--warn); background:var(--warn-bg); color:var(--warn); font-weight:600; }
+  .storage-warn p { margin:0; }
+  .storage-warn p + p { margin-top:6px; }
+  .table-scroll { overflow-x:auto; }
+  @media (max-width:700px) {
+    main { padding:10px; }
+    .rules, .replace { margin-left:0; }
+    .rule input.ans, .rule .picker select { width:100%; max-width:none; }
+    .rule-head select { max-width:100%; }
+    td.flow, #mapTable th:nth-child(4) { display:none; }
+    .num { width:auto; }
+  }
+  #mapBody tr.flash > td { animation:flash 1.6s ease-out; }
+  @keyframes flash { 0%,30% { background:var(--warn-bg); } 100% { background:transparent; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Swizzle</h1>
+  <p>Turn Google Form responses into a file for Notion, with the right column names and order.</p>
+</header>
+
+<main>
+  <div>
+    <div id="storageWarn" class="card storage-warn" role="alert" hidden></div>
+    <details class="card help" id="howTo">
+      <summary><strong>How does it work?</strong></summary>
+      <ol>
+        <li><strong>Add your survey responses.</strong> Open the Google Sheet with your form responses, then choose <em>File &rarr; Download &rarr; Comma-separated values (.csv)</em>. Drop the downloaded file in box 1.</li>
+        <li><strong>Send each answer to a Notion column.</strong> Each row reads left to right: <em>a question from the Google Form &rarr; the Notion column it goes to</em>. Start with all the survey questions, then rename, reorder or remove them. The order of the rows is the order of the columns in Notion.</li>
+        <li><strong>When the question to use depends on another answer</strong> (for example the title comes from a different question for a conference or a publication), choose <em>&ldquo;Depends on another answer&hellip;&rdquo;</em> on the left and add one rule per answer. Use the <em>a&rarr;b</em> button to replace text on the way (fix spelling, shorten answers&hellip;).</li>
+        <li><strong>Already using <code>IFS(&hellip;)</code> formulas in Google Sheets?</strong> Open <em>Google Sheets formulas</em> at the bottom of step 2 to import them, or to turn your setup back into formulas to paste into Google Sheets.</li>
+        <li><strong>Save your setup</strong> (in <em>Saved setups</em> at the top) so next time you only need to drop in the new responses file.</li>
+        <li><strong>Download the file for Notion</strong>, then in Notion use <em>Import &rarr; CSV</em> (new page) or, in an existing database, <em>&bull;&bull;&bull; &rarr; Merge with CSV</em>.</li>
+      </ol>
+      <p class="muted small" style="margin-bottom:0">Nothing is uploaded anywhere: your files stay on your computer.</p>
+    </details>
+
+    <!-- Saved setups (a full-width row, so the steps below keep all the horizontal space) -->
+    <section class="card setups" id="setupsCard">
+      <div class="setups-controls">
+        <h2>Saved setups</h2>
+        <p class="small muted" style="margin-top:-6px">Setups are kept in this browser.</p>
+        <div class="small" id="activeInfo"></div>
+        <div class="row" style="margin-top:8px">
+          <input id="mapName" type="text" placeholder="Give it a name, e.g. Event feedback 2026" aria-label="Setup name" aria-describedby="saveHint">
+        </div>
+        <p id="saveHint" class="small muted" style="margin:4px 0 0" hidden></p>
+        <div class="row">
+          <button id="btnSave" class="primary">Save</button>
+          <button id="btnSaveAs" title="Keep the existing setup unchanged and save these choices under a new name">Save as a copy</button>
+          <button id="btnNew" title="Clear the columns and start a new setup">Start over</button>
+        </div>
+        <div class="backup">
+          <h3>Backup and sharing</h3>
+          <p class="small muted">To share setups or use them on another computer.</p>
+          <div class="row">
+            <button id="btnExport" class="small">Save backup file</button>
+            <button id="btnImport" class="small">Load backup file&hellip;</button>
+            <input id="importFile" type="file" accept=".json,application/json" hidden>
+          </div>
+        </div>
+      </div>
+      <div class="setups-list">
+        <ul id="mapList" class="maplist"></ul>
+        <p id="mapListEmpty" class="small muted" style="margin:0">No saved setups yet.</p>
+      </div>
+    </section>
+
+    <!-- 1. Source -->
+    <section class="card">
+      <h2><span class="step" id="step1Pill">1</span> Add your survey responses</h2>
+      <p class="small muted" style="margin-top:-6px">In Google Sheets: <em>File &rarr; Download &rarr; Comma-separated values (.csv)</em></p>
+      <div id="dropZone" class="drop" tabindex="0" role="button">
+        <div style="font-size:15px"><strong>Drag the downloaded file here</strong></div>
+        <div class="small">or click to pick it from your computer</div>
+      </div>
+      <input id="sourceFile" type="file" accept=".csv,.tsv,text/csv,text/plain" hidden>
+      <p id="sourceInfo" class="small muted" style="margin:8px 0 0"></p>
+    </section>
+
+    <!-- 2. Mapping -->
+    <section class="card">
+      <h2><span class="step">2</span> Send the answers to Notion columns
+        <span class="h2-actions">
+          <button id="btnUndo" class="small" disabled>&#8630; Undo</button>
+          <button id="btnRedo" class="small" disabled>Redo &#8631;</button>
+        </span>
+      </h2>
+
+      <div id="startBox">
+        <p class="small muted" style="margin-top:-6px">How do you want to start?</p>
+        <p id="startNeedsFile" class="small warn" style="margin-top:0">First add your responses file in step 1.</p>
+        <div class="row">
+          <button id="btnFromSource" class="primary" title="One row per survey question, each going to a Notion column with the same name. Then rename, reorder or remove them.">Start with all survey questions</button>
+          <button id="btnNotionHeaders" aria-expanded="false">Start from an existing Notion database</button>
+          <button id="btnPaste" title="Type or paste the names of the Notion columns. Questions with a similar name are matched automatically.">Type the Notion column names</button>
+          <button id="btnFromSheets" title="Paste the IFS(…) formulas you already use in Google Sheets: each one becomes a column here.">Import my Google Sheets formulas</button>
+        </div>
+        <p class="small muted" style="margin-bottom:0">Saved a setup before? Click <strong>Use</strong> on it above.</p>
+      </div>
+
+      <div id="notionBox" hidden style="margin-top:10px">
+        <ol class="small" style="margin:0 0 8px; padding-left:20px">
+          <li>In Notion, open your database and click <em>&bull;&bull;&bull; &rarr; Export</em>.</li>
+          <li>Choose <em>Markdown &amp; CSV</em> and export. Unzip the downloaded file.</li>
+          <li>Pick the <code>.csv</code> file below. Its column names become the rows here; questions with a similar name are matched automatically.</li>
+        </ol>
+        <div class="row">
+          <button id="notionPick" class="primary">Choose the Notion .csv file&hellip;</button>
+          <button id="notionCancel">Cancel</button>
+        </div>
+      </div>
+
+      <div id="pasteBox" hidden style="margin-top:10px">
+        <label class="small" for="pasteText">One Notion column name per line:</label>
+        <textarea id="pasteText" placeholder="Name&#10;Email&#10;Company&#10;Feedback"></textarea>
+        <div class="row" style="margin-top:6px">
+          <button id="pasteReplace" class="primary">Use these columns</button>
+          <button id="pasteAppend">Add to the existing columns</button>
+          <button id="pasteCancel">Cancel</button>
+        </div>
+      </div>
+
+      <div id="mapArea" hidden>
+        <p class="small muted" style="margin:0 0 4px">Each row fills one Notion column. <strong>Row order = column order</strong> (drag &#8801;, use the arrows or type a number). The first column is the page title.</p>
+        <div class="table-scroll"><table id="mapTable">
+          <thead>
+            <tr><th></th><th>#</th><th style="width:44%">From the Google Form</th><th></th><th style="width:30%">To the Notion column</th><th></th></tr>
+          </thead>
+          <tbody id="mapBody"></tbody>
+        </table></div>
+        <ul id="warnings" class="warnings" hidden></ul>
+
+        <div class="row" style="margin-top:10px">
+          <button id="btnAdd">+ Add a row</button>
+          <button id="btnAuto" title="For Notion columns that don't receive anything yet, find a survey question with a similar name">Match names automatically</button>
+          <button id="btnPaste2">Type column names&hellip;</button>
+          <button id="btnSheets2">Google Sheets formulas&hellip;</button>
+          <button id="btnClear" class="danger">Remove all rows</button>
+        </div>
+
+        <div id="unusedBox" hidden style="margin-top:14px">
+          <div class="row" style="justify-content:space-between">
+            <span class="small muted">Survey questions not sent to Notion yet (click one to add it):</span>
+            <button id="btnAddAllUnused" class="small">Add them all</button>
+          </div>
+          <div id="unusedChips" class="chips" style="margin-top:6px"></div>
+        </div>
+      </div>
+      <input id="notionFile" type="file" accept=".csv,.tsv,text/csv,text/plain" hidden>
+
+      <details id="textView" class="textview">
+        <summary class="small"><strong>Advanced: edit as text</strong> <span class="muted">(same settings, written as one line per column)</span></summary>
+        <div class="small muted" style="margin:8px 0">
+          One line per Notion column, in order, from the Google Form to Notion: <code>where it comes from =&gt; Notion column name</code>. Changes made here or in the table above are kept in sync.
+          <table class="syntax">
+            <tr><td><code>E =&gt; Courriel</code></td><td>column E of the responses file goes to the Notion column &ldquo;Courriel&rdquo;</td></tr>
+            <tr><td><code>[Titre#2] =&gt; Titre</code></td><td>a question by its title (<code>#2</code> = the 2nd question with that title)</td></tr>
+            <tr><td><code>"Formulaire" =&gt; Source</code> &nbsp; <code>blank =&gt; Notes</code></td><td>the same text on every row / leave blank</td></tr>
+            <tr><td><code>J ? "Conférence": Q | "Publication": W | else: blank =&gt; Titre</code></td><td>depends on the answer in column J (first match wins; <code>~"conf"</code> = contains; <code>empty:</code> = no answer)</td></tr>
+            <tr><td><code>AC {"$" -&gt; ""; s/,/./g} =&gt; Prix</code></td><td>replace text on the way: <code>"a" -&gt; "b"</code> plain text, <code>s/a/b/g</code> pattern like sed (<code>\1</code>, <code>&amp;</code>)</td></tr>
+          </table>
+          Indented lines continue the previous line. Lines starting with <code>#</code> are ignored.
+        </div>
+        <textarea id="textArea" spellcheck="false" wrap="off" aria-label="The columns, written as text"></textarea>
+        <ul id="textErrors" class="warnings" hidden></ul>
+        <div class="row" style="margin-top:6px">
+          <button id="textApply" class="primary">Apply</button>
+          <button id="textDiscard">Discard my edits</button>
+          <span id="textState" class="small warn"></span>
+        </div>
+      </details>
+
+      <details id="sheetsView" class="textview">
+        <summary class="small"><strong>Google Sheets formulas</strong> <span class="muted">(bring in your existing IFS formulas, or get formulas to paste into Google Sheets)</span></summary>
+        <div class="sheets-grid">
+          <div>
+            <h3>Import formulas from Google Sheets</h3>
+            <ol class="small muted">
+              <li>Add the responses file in step 1 (the column letters in the formulas are matched to its questions).</li>
+              <li>In the Google Sheet that has your formulas, choose <em>View &rarr; Show &rarr; Formulas</em> (or press <code>Ctrl+`</code>).</li>
+              <li>Select the row with the column names <strong>and</strong> the first row of formulas below it (e.g. rows 1 and 2), copy, and paste here.</li>
+            </ol>
+            <textarea id="sheetsIn" spellcheck="false" wrap="off" aria-label="Formulas copied from Google Sheets" placeholder="Type&#9;Titre&#10;='Réponses au formulaire 1'!J2&#9;=IFS('Réponses au formulaire 1'!J2=&quot;Conférence&quot;; 'Réponses au formulaire 1'!R2; TRUE; &quot;&quot;)"></textarea>
+            <div class="row small" style="margin-top:6px">
+              <label class="inline"><input type="radio" name="sheetsMode" value="merge" checked> Update the rows with the same Notion column name, add the others</label>
+              <label class="inline"><input type="radio" name="sheetsMode" value="replace"> Replace all rows</label>
+            </div>
+            <div class="row">
+              <button id="sheetsImport" class="primary">Import formulas</button>
+              <button id="sheetsClearIn">Clear</button>
+            </div>
+            <ul id="sheetsResult" class="sheets-result" hidden></ul>
+          </div>
+          <div>
+            <h3>Export as Google Sheets formulas</h3>
+            <div class="row small sheets-opts">
+              <label>Name of the responses sheet <input id="sheetsName" type="text"></label>
+            </div>
+            <div class="row small sheets-opts">
+              <label>Formulas start at row <input id="sheetsRow" type="text" inputmode="numeric" maxlength="6"></label>
+              <label>Separator
+                <select id="sheetsSep">
+                  <option value=";">; (French and most European settings)</option>
+                  <option value=",">, (English settings)</option>
+                </select>
+              </label>
+            </div>
+            <div class="row">
+              <button id="sheetsCopyAll" class="primary">Copy names and formulas</button>
+              <span id="sheetsExportInfo" class="small warn"></span>
+            </div>
+            <p class="small muted" style="margin:6px 0 0">In an empty sheet of the same Google Sheets file, click cell A1 and paste: row 1 gets the Notion column names, row 2 the formulas. Then select row 2 down to the last response and press <code>Ctrl+D</code> (<code>&#8984;D</code> on Mac) to fill the formulas down. Or copy one formula at a time:</p>
+            <div id="sheetsOut" class="sheets-out"></div>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <!-- Answer check -->
+    <section class="card check-card" id="checkCard" hidden>
+      <h2><span class="check-icon">!</span> Answers that don't match any rule <span id="checkCount" class="badge"></span></h2>
+      <p class="small muted" style="margin-top:-6px">No rule matches these answers, so they get the &ldquo;Otherwise&rdquo; value. Usually a typo or different wording. Row numbers match Google Sheets.</p>
+      <div id="checkList"></div>
+    </section>
+
+    <!-- 3. Export -->
+    <section class="card">
+      <h2><span class="step">3</span> Check the result and download it for Notion</h2>
+      <p id="previewInfo" class="small muted" style="margin-top:-6px"></p>
+      <div class="preview" id="previewWrap"><table id="previewTable"></table></div>
+      <div class="row" style="margin-top:12px">
+        <label class="small" for="outName">File name:</label>
+        <input id="outName" type="text" style="max-width:320px" value="for-notion.csv">
+        <button id="btnDownload" class="primary big" aria-describedby="dlWarn">Download file for Notion</button>
+        <button id="btnCopy" title="Copy the result to paste it into Google Sheets or Excel">Copy the result</button>
+      </div>
+      <p id="dlWarn" class="small warn" style="margin:8px 0 0" hidden></p>
+      <p class="small muted" style="margin-bottom:0;margin-top:10px">In Notion: <em>Import &rarr; CSV</em> to create a new database, or in an existing database click <em>&bull;&bull;&bull; &rarr; Merge with CSV</em>.</p>
+    </section>
+  </div>
+</main>
+
+<div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+<script>
+"use strict";
+
+/* =====================================================================
+   Data model
+   ---------------------------------------------------------------------
+   A "ref" points to a column of the responses file by its title and by
+   which occurrence of that title it is (Google Forms with sections often
+   repeat the same question title):   { name: "Titre", nth: 1 }  -> 2nd "Titre"
+
+   A "value" says what to put in a cell:
+     { kind: "empty" | "column" | "fixed", src: ref|null, text: "" }
+
+   A target (one output column) is a value plus a name, and can also be
+   kind "rules": look at the answer to `when`, go through `rules` from top
+   to bottom, the first rule that matches decides; otherwise `otherwise`.
+   ===================================================================== */
+
+const LS_MAPS = "swizzle.mappings.v1";
+const LS_CURRENT = "swizzle.current.v1";
+
+/** @type {{name:string, headers:string[], rows:string[][]} | null} */
+let source = null;
+let targets = [];
+let activeMapId = null;
+let maps = {}; // loaded at start-up (see Init), once every helper is defined
+
+/* ---------- Generic helpers ---------- */
+const $ = (s) => document.querySelector(s);
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+
+function el(tag, attrs = {}, ...children) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k === "class") e.className = v;
+    else if (k.startsWith("on") && typeof v === "function") e.addEventListener(k.slice(2), v);
+    else if (k in e && typeof v !== "string") e[k] = v;
+    else e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of children.flat()) {
+    if (c == null || c === false) continue;
+    e.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  }
+  return e;
+}
+
+let toastTimer;
+function toast(msg) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  // Long messages stay longer (about 60 ms per character, at least 3 s)
+  toastTimer = setTimeout(() => t.classList.remove("show"), Math.max(3000, msg.length * 60));
+}
+
+function norm(s) {
+  return String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function colLetter(i) {
+  let s = "";
+  i++;
+  while (i > 0) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); }
+  return s;
+}
+
+function download(filename, content, type) {
+  const blob = new Blob([content], { type });
+  const a = el("a", { href: URL.createObjectURL(blob), download: filename });
+  document.body.append(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+}
+
+function fmtDate(ts) {
+  return ts ? new Date(ts).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "";
+}
+
+const plural = (n, word) => `${n} ${word}${n !== 1 ? "s" : ""}`;
+
+/* ---------- CSV ---------- */
+/**
+ * Which character separates the cells: try each one on the first rows and keep the one that gives
+ * the same number of cells (more than one) on every row. Counting only the first line is not enough:
+ * a ";" inside a question title, or commas in the titles of a tab-separated file, would win.
+ */
+function detectDelimiter(text) {
+  const sample = text.slice(0, 200000);
+  const order = [",", "\t", ";"];
+  let best = null;
+  for (const d of order) {
+    const raw = splitRows(sample, d, 21);
+    if (raw.length > 1 && raw.length < 21 && text.length > sample.length) raw.pop(); // the last sampled row may be cut short
+    const rows = raw.filter((r) => r.some((v) => v !== ""));
+    if (!rows.length) continue;
+    const n = rows[0].length;
+    if (n < 2 || !rows.every((r) => r.length === n)) continue;
+    if (!best || n > best.n) best = { d, n };
+  }
+  if (best) return best.d;
+  // No separator is consistent: fall back to the one used most on the first line
+  const counts = { ",": 0, ";": 0, "\t": 0 };
+  let inQ = false;
+  for (let i = 0; i < text.length && i < 20000; i++) {
+    const c = text[i];
+    if (c === '"') inQ = !inQ;
+    else if (!inQ) {
+      if (c === "\n" || c === "\r") break;
+      if (c in counts) counts[c]++;
+    }
+  }
+  const [top, n] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  return n > 0 ? top : ",";
+}
+
+/** `delim`: "," ";" or "\t", or null to guess it. */
+function parseCSV(text, keepEmpty = false, delim = null) {
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+  const rows = splitRows(text, delim || detectDelimiter(text), Infinity);
+  return keepEmpty ? rows : rows.filter((r) => r.some((v) => v !== ""));
+}
+
+function splitRows(text, d, maxRows) {
+  const rows = [];
+  let row = [], f = "", q = false, i = 0;
+  const n = text.length;
+  while (i < n && rows.length < maxRows) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { f += '"'; i += 2; continue; }
+        q = false; i++; continue;
+      }
+      f += c; i++; continue;
+    }
+    if (c === '"') { q = true; i++; continue; }
+    if (c === d) { row.push(f); f = ""; i++; continue; }
+    if (c === "\r" || c === "\n") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      i++;
+      row.push(f); rows.push(row); row = []; f = "";
+      continue;
+    }
+    f += c; i++;
+  }
+  if (rows.length < maxRows && (f !== "" || row.length)) { row.push(f); rows.push(row); }
+  return rows;
+}
+
+function csvField(v) {
+  v = v == null ? "" : String(v);
+  return /[",\r\n]|^\s|\s$/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+}
+
+function toCSV(header, rows) {
+  return [header, ...rows].map((r) => r.map(csvField).join(",")).join("\r\n") + "\r\n";
+}
+
+/* ---------- Column references ---------- */
+function refIndex(ref) {
+  if (!source || !ref) return -1;
+  // Looked up for every cell of every row: build a map once per responses file
+  if (!source.refMap) {
+    source.refMap = new Map();
+    const seen = {};
+    source.headers.forEach((h, i) => { seen[h] = (seen[h] ?? -1) + 1; source.refMap.set(`${seen[h]}|${h}`, i); });
+  }
+  return source.refMap.get(`${ref.nth || 0}|${ref.name}`) ?? -1;
+}
+const hasRef = (ref) => refIndex(ref) >= 0;
+const cloneRef = (ref) => (ref ? { name: ref.name, nth: ref.nth || 0 } : null);
+const refKey = (ref) => `${ref.nth || 0}|${ref.name}`;
+function keyRef(k) { const p = k.indexOf("|"); return { nth: Number(k.slice(0, p)), name: k.slice(p + 1) }; }
+
+/** Every column of the responses file as a ref (with its index). */
+function allRefs() {
+  if (!source) return [];
+  const seen = {};
+  return source.headers.map((h, i) => {
+    seen[h] = (seen[h] ?? -1) + 1;
+    return { name: h, nth: seen[h], index: i };
+  });
+}
+
+function refLabel(ref) {
+  const i = refIndex(ref);
+  const title = ref.name || "(untitled column)";
+  if (i < 0) return (source ? "Not in this file: " : "") + title + (ref.nth ? ` (#${ref.nth + 1})` : "");
+  return `${colLetter(i)}: ${title}`;
+}
+
+function cellAt(ref, row) {
+  const i = refIndex(ref);
+  return i < 0 ? "" : (row[i] ?? "");
+}
+
+/** If a ref is not found, look for a column whose title only differs by case/accents/punctuation. */
+function rebindRef(ref) {
+  if (!source || !ref || hasRef(ref)) return false;
+  const nn = norm(ref.name);
+  if (!nn) return false;
+  const cands = allRefs().filter((r) => norm(r.name) === nn);
+  // Only fall back to the single similar question for the 1st occurrence: otherwise "Titre #1" and
+  // "Titre #2" would both silently land on the same question
+  const c = cands[ref.nth || 0] ?? (cands.length === 1 && !ref.nth ? cands[0] : null);
+  if (!c) return false;
+  ref.name = c.name;
+  ref.nth = c.nth;
+  return true;
+}
+
+/* ---------- Values, rules & evaluation ---------- */
+const emptyVal = () => ({ kind: "empty", src: null, text: "" });
+const newRule = (value = "") => ({ op: "is", value, val: emptyVal() });
+
+function newTarget(name, ref = null) {
+  return {
+    id: uid(), name,
+    kind: ref ? "column" : "empty", src: cloneRef(ref), text: "",
+    when: null, rules: [], otherwise: emptyVal(), replace: [],
+  };
+}
+const newRepl = (regex = false) => ({ find: "", with: "", regex, flags: "g" });
+
+/* ---------- Text replacements ---------- */
+const reCache = new Map();
+function cleanFlags(f) { return [...new Set(String(f || "").replace(/[^gimsu]/g, ""))].join(""); }
+function compileRe(r) {
+  const key = cleanFlags(r.flags) + "\u0000" + r.find;
+  if (!reCache.has(key)) {
+    let v;
+    try { v = new RegExp(r.find, cleanFlags(r.flags)); } catch (e) { v = e; }
+    reCache.set(key, v);
+  }
+  return reCache.get(key);
+}
+function regexError(r) {
+  if (!r.regex || !r.find) return null;
+  const v = compileRe(r);
+  return v instanceof Error ? v.message.replace(/^Invalid regular expression: /, "") : null;
+}
+/** sed-style replacement: \1..\9 = groups, & = whole match, \& = "&", \n = new line. */
+function sedReplacement(tpl, m) {
+  let out = "";
+  for (let i = 0; i < tpl.length; i++) {
+    const c = tpl[i];
+    if (c === "\\" && i + 1 < tpl.length) {
+      const d = tpl[++i];
+      out += /[0-9]/.test(d) ? (m[+d] ?? "") : d === "n" ? "\n" : d === "t" ? "\t" : d;
+    } else if (c === "&") out += m[0];
+    else out += c;
+  }
+  return out;
+}
+function applyReplacements(s, list) {
+  for (const r of list) {
+    if (!r.find) continue;
+    if (!r.regex) { s = s.split(r.find).join(r.with); continue; }
+    const re = compileRe(r);
+    if (re instanceof Error) continue;
+    s = s.replace(re, (...args) => {
+      const end = typeof args[args.length - 1] === "object" ? args.length - 3 : args.length - 2;
+      return sedReplacement(r.with, args.slice(0, end));
+    });
+  }
+  return s;
+}
+
+function evalVal(v, row) {
+  return v.kind === "column" ? cellAt(v.src, row) : v.kind === "fixed" ? v.text : "";
+}
+
+/**
+ * How answers and rule texts are compared: spaces around are ignored, repeated spaces count as one
+ * and upper/lower case doesn't matter. This is exactly what TRIM(…)="…" does in Google Sheets,
+ * so the exported formulas give the same results.
+ */
+const cmpText = (s) => String(s ?? "").trim().replace(/ {2,}/g, " ").toLowerCase();
+
+/** `answer` must already be prepared with cmpText. */
+function ruleMatches(r, answer) {
+  if (r.op === "empty") return answer === "";
+  const v = cmpText(r.value);
+  if (!v) return false;
+  return r.op === "contains" ? answer.includes(v) : answer === v;
+}
+
+/** Index of the first matching rule for this row, or -1. */
+function matchIndex(t, row) {
+  const a = cmpText(cellAt(t.when, row));
+  return t.rules.findIndex((r) => ruleMatches(r, a));
+}
+const RULE_OPS = ["is", "contains", "empty"];
+
+function evalTarget(t, row) {
+  let v;
+  if (t.kind !== "rules") v = evalVal(t, row);
+  else { const k = matchIndex(t, row); v = evalVal(k >= 0 ? t.rules[k].val : t.otherwise, row); }
+  return t.replace.length ? applyReplacements(v, t.replace) : v;
+}
+
+/** Distinct (trimmed, non-empty) answers of a column, in order of appearance, with counts. */
+function distinctValues(ref) {
+  const m = new Map();
+  const i = refIndex(ref);
+  if (i < 0) return m;
+  for (const r of source.rows) {
+    const v = (r[i] ?? "").trim();
+    if (v) m.set(v, (m.get(v) || 0) + 1);
+  }
+  return m;
+}
+
+/** Refs that matter for the output of a target. */
+function activeRefs(t) {
+  const out = [];
+  const add = (v) => { if (v.kind === "column" && v.src) out.push(v.src); };
+  if (t.kind === "column") add(t);
+  else if (t.kind === "rules") {
+    if (t.when) out.push(t.when);
+    t.rules.forEach((r) => add(r.val));
+    add(t.otherwise);
+  }
+  return out;
+}
+
+/** Column indexes whose content is copied into the output somewhere. */
+function usedIndexes() {
+  const s = new Set();
+  for (const t of targets) {
+    for (const r of activeRefs(t)) {
+      if (r === t.when) continue;
+      const i = refIndex(r);
+      if (i >= 0) s.add(i);
+    }
+  }
+  return s;
+}
+
+function rebindMissing() {
+  if (!source) return 0;
+  let n = 0;
+  for (const t of targets) {
+    for (const r of [t.src, t.when, t.otherwise.src, ...t.rules.map((x) => x.val.src)]) {
+      if (rebindRef(r)) n++;
+    }
+  }
+  return n;
+}
+
+function findMatch(name, used) {
+  const nn = norm(name);
+  if (!nn) return null;
+  const c = allRefs().filter((r) => !used.has(r.index));
+  let m = c.find((r) => r.name === name) ?? c.find((r) => norm(r.name) === nn);
+  if (!m && nn.length >= 3) {
+    m = c.find((r) => { const hn = norm(r.name); return hn.length >= 3 && (hn.includes(nn) || nn.includes(hn)); });
+  }
+  return m ? cloneRef(m) : null;
+}
+
+function autoMatch(silent) {
+  if (!source) { if (!silent) toast("Add your survey responses in step 1 first"); return 0; }
+  const used = usedIndexes();
+  let n = 0;
+  for (const t of targets) {
+    if (!(t.kind === "empty" || (t.kind === "column" && !hasRef(t.src)))) continue;
+    const m = findMatch(t.name, used);
+    if (m) { t.kind = "column"; t.src = m; used.add(refIndex(m)); n++; }
+  }
+  if (!silent) toast(n ? `Matched ${plural(n, "column")} to a question` : "No more matches found. Pick the questions yourself.");
+  return n;
+}
+
+/** Add one rule per distinct answer of the "when" column that doesn't have a rule yet. */
+function addRulesForAnswers(t, auto) {
+  const answers = [...distinctValues(t.when).keys()];
+  if (auto && (answers.length === 0 || answers.length > 25)) return 0; // probably free text: don't flood
+  const have = new Set(t.rules.filter((r) => r.op !== "empty").map((r) => cmpText(r.value)));
+  let n = 0;
+  for (const a of answers) {
+    if (have.has(cmpText(a))) continue;
+    t.rules.push(newRule(a));
+    n++;
+  }
+  return n;
+}
+
+/** Copy "look at" question + rule conditions from another column, keeping results where the answer is the same. */
+function copyConditions(t, other) {
+  const prev = new Map(t.rules.map((r) => [r.op + "|" + cmpText(r.value), r.val]));
+  t.when = cloneRef(other.when);
+  t.rules = other.rules.map((r) => ({ op: r.op, value: r.value, val: prev.get(r.op + "|" + cmpText(r.value)) ?? prev.get("is|" + cmpText(r.value)) ?? emptyVal() }));
+}
+
+/* ---------- Answer check: answers that no rule matches, and likely typos ---------- */
+function levenshtein(a, b, max) {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    let best = i;
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (cur[j] < best) best = cur[j];
+    }
+    if (best > max) return max + 1;
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
+/** How close an answer is to a rule's text. Lower score = closer; null = not close. */
+function closeness(answer, ruleText) {
+  const al = answer.toLowerCase(), vl = ruleText.trim().toLowerCase();
+  const na = norm(answer), nv = norm(ruleText);
+  if (!vl || !nv) return null;
+  if (na === nv) return { score: 0, why: "it is the same apart from accents, spaces or punctuation" };
+  if (al.includes(vl)) return { score: 1, why: `it contains \u201c${ruleText.trim()}\u201d`, contains: true };
+  if (nv.length >= 3 && na.includes(nv)) return { score: 1.5, why: `it contains \u201c${ruleText.trim()}\u201d (apart from accents or punctuation)` };
+  if (na.length >= 3 && nv.includes(na)) return { score: 2, why: `it is a shorter version of \u201c${ruleText.trim()}\u201d` };
+  const shortest = Math.min(na.length, nv.length);
+  if (shortest >= 4) {
+    const max = Math.min(3, Math.max(1, Math.floor(shortest / 5)));
+    const d = levenshtein(na, nv, max);
+    if (d <= max) return { score: 2 + d, why: d === 1 ? "only one letter is different (a typo?)" : `only ${d} letters are different (a typo?)` };
+  }
+  const wa = new Set(na.split(" ").filter((w) => w.length >= 3)), wv = new Set(nv.split(" ").filter((w) => w.length >= 3));
+  const shared = [...wa].filter((w) => wv.has(w));
+  if (shared.length && shared.length / Math.min(wa.size, wv.size) >= 0.5) return { score: 6, why: `they share the word${shared.length > 1 ? "s" : ""} \u201c${shared.join("\u201d, \u201c")}\u201d` };
+  return null;
+}
+
+/**
+ * For a "depends on another answer" column: the answers no rule matches (grouped, with their rows),
+ * the rules they are close to, and rules that match nothing but look like a typo of a real answer.
+ */
+/** Same inputs (this column's rules, and the rules of the columns looking at the same question) = same result. */
+let analysisCache = { source: null, map: new Map() };
+function analyzeTarget(t) {
+  if (t.kind !== "rules" || !source || !hasRef(t.when)) return null;
+  if (analysisCache.source !== source) analysisCache = { source, map: new Map() };
+  const sib = targets.filter((o) => o !== t && o.kind === "rules" && o.when && refKey(o.when) === refKey(t.when)).map((o) => o.rules);
+  const key = JSON.stringify([t.when, t.rules, t.otherwise, sib]);
+  const hit = analysisCache.map.get(t.id);
+  if (hit && hit.key === key) return hit.result;
+  const result = analyzeTargetNow(t);
+  analysisCache.map.set(t.id, { key, result });
+  return result;
+}
+function analyzeTargetNow(t) {
+  const wi = refIndex(t.when);
+  const answers = new Map(); // lower-case answer -> { answer, rows, k }
+  const hits = new Array(t.rules.length).fill(0);
+  source.rows.forEach((row, i) => {
+    const raw = (row[wi] ?? "").trim();
+    if (!raw) return; // empty answers are never flagged
+    const low = cmpText(raw);
+    let g = answers.get(low);
+    if (!g) { g = { answer: raw, rows: [], k: t.rules.findIndex((r) => ruleMatches(r, low)) }; answers.set(low, g); }
+    g.rows.push(i);
+    if (g.k >= 0) hits[g.k]++;
+  });
+  const otherwiseBlank = t.otherwise.kind === "empty" || (t.otherwise.kind === "fixed" && t.otherwise.text === "");
+  // Answers handled by another column that looks at the same question are known answers that this
+  // column leaves out on purpose (e.g. "Thèmes" has no rule for "Publication"): they are only
+  // flagged when they look like one of this column's own rules (a likely typo).
+  const siblings = targets.filter((o) => o !== t && o.kind === "rules" && o.when && refKey(o.when) === refKey(t.when));
+  const unmatched = [];
+  for (const [low, g] of answers) {
+    if (g.k >= 0) continue;
+    const near = t.rules.map((r, k) => ({ k, ...(r.op !== "empty" && closeness(g.answer, r.value) || {}) }))
+      .filter((x) => x.why).sort((a, b) => a.score - b.score).slice(0, 2);
+    // A rule that matches no response at all is most likely the one with the typo
+    near.forEach((n) => { n.unused = hits[n.k] === 0; });
+    const known = siblings.some((o) => o.rules.some((r) => ruleMatches(r, low)));
+    if (near.length || (otherwiseBlank && !known)) unmatched.push({ ...g, near });
+  }
+  return { unmatched, otherwiseBlank, flaggedRows: unmatched.reduce((n, g) => n + g.rows.length, 0) };
+}
+
+/** Distinct answers whose result would change if rule k used "contains" (besides `except`). */
+function containsSideEffects(t, k, except) {
+  const trial = { ...t, rules: t.rules.map((r, i) => (i === k ? { ...r, op: "contains" } : r)) };
+  const seen = new Set(), out = [];
+  const wi = refIndex(t.when);
+  for (const row of source.rows) {
+    const low = cmpText(row[wi]);
+    if (!low || seen.has(low) || low === cmpText(except)) continue;
+    seen.add(low);
+    if (t.rules.findIndex((r) => ruleMatches(r, low)) !== trial.rules.findIndex((r) => ruleMatches(r, low))) out.push(row[wi].trim());
+  }
+  return out;
+}
+
+const cloneVal = (v) => ({ kind: v.kind, src: cloneRef(v.src), text: v.text || "" });
+
+/* ---------- Output ---------- */
+/** The result: a header row and one row per response (only the first `limit` rows if given). */
+function buildOutput(limit = Infinity) {
+  const header = targets.map((t) => t.name);
+  const rows = (source ? source.rows.slice(0, limit) : []).map((r) => targets.map((t) => evalTarget(t, r)));
+  return { header, rows };
+}
+
+function sampleFor(t) {
+  if (!source) return t.kind === "fixed" ? t.text : "";
+  for (const r of source.rows) { const v = evalTarget(t, r); if (v) return v; }
+  return "";
+}
+
+/* ---------- (De)serialization, with migration of the first format ---------- */
+function hRef(r) {
+  if (r && typeof r === "object" && typeof r.name === "string") return { name: r.name, nth: Number(r.nth) || 0 };
+  if (typeof r === "string") return { name: r, nth: 0 };
+  return null;
+}
+function hVal(v) {
+  const kind = ["empty", "column", "fixed"].includes(v?.kind) ? v.kind : "empty";
+  const src = hRef(v?.src);
+  return { kind: kind === "column" && !src ? "empty" : kind, src, text: String(v?.text ?? "") };
+}
+function hydrateTargets(list) {
+  return (list || []).map((t) => {
+    // v1 format: { name, mode, source, value }
+    const kind = t.kind ?? t.mode;
+    const src = hRef(t.src ?? t.source);
+    const k = ["empty", "column", "fixed", "rules"].includes(kind) ? kind : "empty";
+    return {
+      id: uid(),
+      name: String(t.name ?? ""),
+      kind: k === "column" && !src ? "empty" : k,
+      src,
+      text: String(t.text ?? t.value ?? ""),
+      when: hRef(t.when),
+      rules: Array.isArray(t.rules) ? t.rules.map((r) => ({ op: RULE_OPS.includes(r?.op) ? r.op : "is", value: String(r?.value ?? ""), val: hVal(r?.val) })) : [],
+      otherwise: hVal(t.otherwise),
+      replace: Array.isArray(t.replace) ? t.replace.map((r) => ({ find: String(r?.find ?? ""), with: String(r?.with ?? ""), regex: !!r?.regex, flags: String(r?.flags ?? "g") })) : [],
+    };
+  });
+}
+function serializeTargets(list) {
+  const sVal = (v) => ({ kind: v.kind, src: cloneRef(v.src), text: v.text || "" });
+  return list.map((t) => ({
+    name: t.name, kind: t.kind, src: cloneRef(t.src), text: t.text || "",
+    when: cloneRef(t.when),
+    rules: t.rules.map((r) => ({ op: r.op, value: r.value, val: sVal(r.val) })),
+    otherwise: sVal(t.otherwise),
+    replace: t.replace.map((r) => ({ find: r.find, with: r.with, regex: !!r.regex, flags: r.flags })),
+  }));
+}
+
+/* ---------- Saved setups ---------- */
+/** Problems with the browser storage, shown in a notice at the top until they are solved. */
+const storageState = { mapsFailed: false, currentFailed: false, unreadable: false };
+let storedMapsJSON = "{}"; // what is really in storage: used to undo in-memory changes that could not be saved
+
+function hashText(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36) + s.length.toString(36);
+}
+/** Keep a copy of data that can't be read (only once per content, so it can't fill the storage). */
+function keepUnreadable(suffix, raw) {
+  const key = `${LS_MAPS}.unreadable-${suffix}`;
+  try { if (localStorage.getItem(key) === null) localStorage.setItem(key, raw); } catch {}
+  storageState.unreadable = true;
+}
+
+function loadMaps() {
+  let raw = null;
+  try { raw = localStorage.getItem(LS_MAPS); } catch { return {}; }
+  storedMapsJSON = raw || "{}";
+  if (!raw) return {};
+  let stored;
+  try { stored = JSON.parse(raw); } catch (e) {
+    // Never silently drop setups: keep the unreadable data aside so it can be recovered.
+    keepUnreadable(hashText(raw), raw);
+    console.error("Swizzle: saved setups could not be read", e);
+    return {};
+  }
+  const out = {};
+  for (const [k, m] of Object.entries(stored || {})) {
+    try {
+      out[k] = { ...m, id: m.id || k, name: String(m.name || "Setup"), targets: serializeTargets(hydrateTargets(m.targets)) };
+    } catch (e) {
+      console.error("Swizzle: skipped a saved setup that could not be read", m, e);
+      const s = JSON.stringify(m) ?? String(m);
+      keepUnreadable(`${k}-${hashText(s)}`, s);
+    }
+  }
+  return out;
+}
+
+/**
+ * Write the setups. The real save comes first; the one-step safety copy is only written afterwards,
+ * so it can never use up the space the real save needs. Returns false if the setups could not be
+ * saved: the in-memory changes are then undone, so the page never says "saved" for something that
+ * would be gone after a reload.
+ */
+function storeMaps() {
+  const json = JSON.stringify(maps);
+  let prev = null;
+  try { prev = localStorage.getItem(LS_MAPS); } catch {}
+  const write = () => localStorage.setItem(LS_MAPS, json);
+  try {
+    try { write(); }
+    catch { localStorage.removeItem(`${LS_MAPS}.previous`); write(); } // free the safety copy's space and retry
+  } catch (e) {
+    maps = JSON.parse(storedMapsJSON || "{}");
+    if (activeMapId && !maps[activeMapId]) activeMapId = null;
+    storageState.mapsFailed = true;
+    renderStorageWarning();
+    alert("Your setups could not be saved in this browser (" + e.message + "), so this change was not kept.\n\nUse \"Save backup file\" to keep a copy of your setups.");
+    return false;
+  }
+  storedMapsJSON = json;
+  storageState.mapsFailed = false;
+  if (prev && prev !== json) {
+    try { localStorage.setItem(`${LS_MAPS}.previous`, prev); } catch { try { localStorage.removeItem(`${LS_MAPS}.previous`); } catch {} }
+  }
+  renderStorageWarning();
+  return true;
+}
+
+function renderStorageWarning() {
+  const box = $("#storageWarn");
+  const msgs = [];
+  if (storageState.mapsFailed || storageState.currentFailed) msgs.push("Your work is not being kept in this browser (its storage is full or blocked). Click \u201cSave backup file\u201d in Saved setups to keep a copy, and download your Notion file before closing the page.");
+  if (storageState.unreadable) msgs.push("Some saved setups could not be read, so they are not shown. A copy of them was kept in this browser in case they can be recovered.");
+  box.replaceChildren(...msgs.map((m) => el("p", {}, m)));
+  box.hidden = !msgs.length;
+}
+function uniqueCopyName(base) {
+  let name = `${base} (copy)`, k = 2;
+  while (findByName(name)) name = `${base} (copy ${k++})`;
+  return name;
+}
+function isDirty() {
+  if (!activeMapId || !maps[activeMapId]) return targets.length > 0;
+  return JSON.stringify(serializeTargets(targets)) !== JSON.stringify(maps[activeMapId].targets);
+}
+function findByName(name, exceptId) {
+  return Object.values(maps).find((m) => m.name.trim().toLowerCase() === name.trim().toLowerCase() && m.id !== exceptId);
+}
+
+function saveMapping(asNew) {
+  let name = $("#mapName").value.trim();
+  if (!targets.length) return toast("Add some columns in step 2 before saving");
+  const now = Date.now();
+
+  // Save changes into the setup in use, unless its name was changed: a new name means a new setup
+  // (the old one is kept as it is; use "Rename" to rename it).
+  if (!asNew && activeMapId && maps[activeMapId] && (!name || name.toLowerCase() === maps[activeMapId].name.toLowerCase())) {
+    const m = maps[activeMapId];
+    name = name || m.name;
+    Object.assign(m, { name, targets: serializeTargets(targets), updatedAt: now });
+    $("#mapName").value = name;
+    const ok = storeMaps(); render();
+    if (ok) toast(`Saved "${name}"`);
+    return;
+  }
+  const previous = activeMapId && maps[activeMapId] ? maps[activeMapId] : null;
+  const prevId = activeMapId;
+
+  if (asNew && activeMapId && maps[activeMapId] && name.toLowerCase() === maps[activeMapId].name.toLowerCase()) {
+    name = uniqueCopyName(maps[activeMapId].name);
+  }
+  if (!name) {
+    const input = $("#mapName");
+    input.focus();
+    input.classList.add("need");
+    setTimeout(() => input.classList.remove("need"), 1500);
+    return toast("Type a name for your setup first, then click Save");
+  }
+  const clash = findByName(name);
+  if (clash) {
+    if (!confirm(`You already have a setup called "${clash.name}". Replace it with these choices?`)) return;
+    Object.assign(clash, { targets: serializeTargets(targets), updatedAt: now });
+    activeMapId = clash.id;
+  } else {
+    const id = uid();
+    maps[id] = { id, name, targets: serializeTargets(targets), createdAt: now, updatedAt: now };
+    activeMapId = id;
+  }
+  $("#mapName").value = name;
+  const ok = storeMaps();
+  if (ok) retargetHistory(prevId, activeMapId);
+  else activeMapId = prevId && maps[prevId] ? prevId : null; // nothing was saved: still using the same setup
+  render();
+  if (!ok) return;
+  toast(clash ? `Replaced the setup "${clash.name}" with these choices`
+    : previous ? `Saved as a new setup "${name}" (\u201c${previous.name}\u201d is unchanged)` : `Saved "${name}"`);
+}
+
+function loadMapping(id) {
+  const m = maps[id];
+  if (!m) return;
+  if (isDirty() && targets.length && !confirm("You have unsaved changes. Discard them?")) return;
+  targets = hydrateTargets(m.targets);
+  activeMapId = id;
+  const relinked = rebindMissing();
+  $("#mapName").value = m.name;
+  textDirty = false; // edits not applied in the text view belong to the previous columns
+  render();
+  toast(`Using setup "${m.name}".` + (relinked ? " " + relinkedMsg(relinked) : ""));
+}
+
+function renameMapping(id) {
+  const m = maps[id];
+  const name = prompt("New name for this setup:", m.name);
+  if (!name || !name.trim() || name.trim() === m.name) return;
+  const clash = findByName(name, id);
+  if (clash && !confirm(`You already have another setup called "${clash.name}". Use this name anyway?`)) return;
+  m.name = name.trim();
+  m.updatedAt = Date.now();
+  if (!storeMaps()) return render();
+  if (id === activeMapId) $("#mapName").value = maps[id].name;
+  render();
+}
+
+function duplicateMapping(id) {
+  const m = maps[id];
+  const name = uniqueCopyName(m.name);
+  const nid = uid(), now = Date.now();
+  maps[nid] = { id: nid, name, targets: structuredClone(m.targets), createdAt: now, updatedAt: now };
+  const ok = storeMaps(); render();
+  if (ok) toast(`Created "${name}"`);
+}
+
+function deleteMapping(id) {
+  const m = maps[id];
+  if (!confirm(`Delete the setup "${m.name}"? This cannot be undone.`)) return;
+  const wasActive = activeMapId;
+  delete maps[id];
+  if (activeMapId === id) activeMapId = null; // keep current columns as an unsaved setup
+  if (!storeMaps()) activeMapId = wasActive;
+  render();
+}
+
+function newMapping() {
+  if (isDirty() && targets.length && !confirm("You have unsaved changes. Discard them?")) return;
+  targets = [];
+  activeMapId = null;
+  $("#mapName").value = "";
+  textDirty = false;
+  render();
+}
+
+function exportMappings() {
+  const list = Object.values(maps);
+  if (!list.length) return toast("There are no saved setups to back up yet");
+  const data = { app: "swizzle", version: 2, exportedAt: new Date().toISOString(), mappings: list };
+  download(`swizzle-setups-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 2), "application/json");
+}
+
+async function importMappings(file) {
+  try {
+    const data = JSON.parse(await file.text());
+    const list = Array.isArray(data) ? data : data.mappings;
+    if (!Array.isArray(list)) throw new Error("bad");
+    let n = 0;
+    for (const m of list) {
+      if (!m || !Array.isArray(m.targets)) continue;
+      const tg = serializeTargets(hydrateTargets(m.targets));
+      let name = String(m.name || "Restored setup").trim();
+      const same = JSON.stringify(tg);
+      if (Object.values(maps).some((x) => JSON.stringify(x.targets) === same)) continue; // already here (maybe under another name): skip
+      const base = name;
+      let k = 2;
+      while (findByName(name)) name = `${base} (from backup${k > 2 ? " " + (k - 1) : ""})`, k++;
+      const id = uid(), now = Date.now();
+      maps[id] = { id, name, targets: tg, createdAt: m.createdAt || now, updatedAt: m.updatedAt || now };
+      n++;
+    }
+    if (!list.length) return toast("This backup file has no setups in it");
+    const ok = !n || storeMaps();
+    render();
+    if (ok) toast(n ? `Added ${plural(n, "setup")} from the backup` : "All setups in this backup are already here");
+  } catch {
+    alert("This file doesn't look like a Swizzle backup file. Please choose the .json file created with \"Save backup file\".");
+  }
+}
+
+/* ---------- Working state persistence ---------- */
+function persistCurrent() {
+  const failed = storageState.currentFailed;
+  try {
+    localStorage.setItem(LS_CURRENT, JSON.stringify({ targets: serializeTargets(targets), activeMapId, name: $("#mapName").value }));
+    storageState.currentFailed = false;
+  } catch {
+    storageState.currentFailed = true;
+  }
+  if (failed !== storageState.currentFailed) renderStorageWarning();
+}
+function restoreCurrent() {
+  try {
+    const c = JSON.parse(localStorage.getItem(LS_CURRENT));
+    if (!c) return;
+    targets = hydrateTargets(c.targets);
+    activeMapId = c.activeMapId && maps[c.activeMapId] ? c.activeMapId : null;
+    $("#mapName").value = c.name || (activeMapId ? maps[activeMapId].name : "");
+  } catch {}
+}
+
+/* ---------- Rendering ---------- */
+let dragIndex = null;
+
+function questionGroup() {
+  const g = el("optgroup", { label: "Survey questions" });
+  for (const r of allRefs()) g.append(el("option", { value: "col:" + refKey(r) }, refLabel(r)));
+  return g;
+}
+
+/** Name of a column for labels and messages. */
+const colName = (t) => `\u201c${t.name.trim() || "column " + (targets.indexOf(t) + 1)}\u201d`;
+
+/** An icon button: the symbol is hidden from screen readers, which read `label` instead. */
+const iconBtn = (symbol, label, attrs) => el("button", { class: "icon", title: label, "aria-label": label, ...attrs, class: "icon" + (attrs.class ? " " + attrs.class : "") }, el("span", { "aria-hidden": "true" }, symbol));
+
+/** Dropdown to choose what fills a cell. `v` is a value object (or a target); `label` is read by screen readers. */
+function picker(v, allowRules = false, label = "What to use") {
+  const sel = el("select", {
+    "aria-label": label,
+    onchange: (e) => {
+      const k = e.target.value;
+      if (k === "__empty__") v.kind = "empty";
+      else if (k === "__fixed__") v.kind = "fixed";
+      else if (k === "__rules__") v.kind = "rules";
+      else { v.kind = "column"; v.src = keyRef(k.slice(4)); }
+      render();
+    },
+  });
+  sel.append(
+    el("option", { value: "__empty__" }, "Nothing (Notion column left blank)"),
+    el("option", { value: "__fixed__" }, "The same text on every row\u2026"),
+  );
+  if (allowRules) sel.append(el("option", { value: "__rules__" }, "Depends on another answer\u2026"));
+  if (v.kind === "column" && v.src && !hasRef(v.src)) sel.append(el("option", { value: "col:" + refKey(v.src) }, refLabel(v.src)));
+  if (source) sel.append(questionGroup());
+  sel.value = v.kind === "column" && v.src ? "col:" + refKey(v.src)
+    : v.kind === "fixed" ? "__fixed__" : v.kind === "rules" ? "__rules__" : "__empty__";
+
+  const wrap = el("div", { class: "picker" }, sel);
+  if (v.kind === "fixed") {
+    wrap.append(el("input", {
+      type: "text", value: v.text, placeholder: "Type the text to put on every row", "aria-label": `${label}: text`,
+      oninput: (e) => { v.text = e.target.value; softRender(); },
+    }));
+  }
+  if (v.kind === "column" && source && !hasRef(v.src)) {
+    wrap.append(el("div", { class: "small warn" }, "Not in this file. Pick another question."));
+  }
+  return wrap;
+}
+
+function ruleCounts(t) {
+  if (!source || !hasRef(t.when)) return null;
+  const c = new Array(t.rules.length + 1).fill(0);
+  for (const row of source.rows) {
+    const k = matchIndex(t, row);
+    c[k >= 0 ? k : t.rules.length]++;
+  }
+  return c;
+}
+function updateCounts(t, els, noteEl) {
+  const c = ruleCounts(t);
+  els.forEach((e, i) => {
+    e.textContent = c ? plural(c[i], "response") : "";
+    e.classList.toggle("zero", !!c && c[i] === 0 && i < t.rules.length);
+  });
+  if (noteEl) {
+    const a = analyzeTarget(t);
+    const n = a ? a.unmatched.length : 0;
+    noteEl.hidden = !n;
+    if (n) {
+      const names = a.unmatched.slice(0, 3).map((g) => `\u201c${g.answer}\u201d`).join(", ") + (n > 3 ? "\u2026" : "");
+      noteEl.replaceChildren(`\u26a0 ${plural(a.flaggedRows, "response")} with an answer that no rule matches (${names}). `,
+        el("a", { href: "#checkCard", onclick: (e) => { e.preventDefault(); $("#checkCard").scrollIntoView({ behavior: "smooth", block: "start" }); } }, "See the suggestions"));
+    }
+  }
+}
+
+function moveIn(list, from, to) {
+  if (to < 0 || to >= list.length) return;
+  const [item] = list.splice(from, 1);
+  list.splice(to, 0, item);
+  render();
+  if (list === targets) toast(`${colName(item)} moved to position ${to + 1} of ${targets.length}`);
+}
+
+/** The "Depends on another answer" editor shown under a column. */
+function rulesEditor(t) {
+  const box = el("div", { class: "rules" });
+
+  const whenSel = el("select", {
+    class: "when", "aria-label": `Question that ${colName(t)} depends on`,
+    onchange: (e) => {
+      const k = e.target.value;
+      // Rules only make sense with a question: going back to "Choose a question…" removes them (after asking)
+      if (!k && t.rules.length && !confirm(`Remove the ${plural(t.rules.length, "rule")} of ${colName(t)}? Rules need a question to look at.`)) { e.target.value = "col:" + refKey(t.when); return; }
+      if (!k) t.rules = [];
+      t.when = k ? keyRef(k.slice(4)) : null;
+      let n = 0;
+      if (t.when && t.rules.length === 0) n = addRulesForAnswers(t, true);
+      render();
+      if (n) toast(`Added a rule for each of the ${n} answers found. Now choose what to use for each one.`);
+    },
+  });
+  whenSel.append(el("option", { value: "" }, "Choose a question\u2026"));
+  if (t.when && !hasRef(t.when)) whenSel.append(el("option", { value: "col:" + refKey(t.when) }, refLabel(t.when)));
+  if (source) whenSel.append(questionGroup());
+  whenSel.value = t.when ? "col:" + refKey(t.when) : "";
+
+  const others = targets.filter((o) => o !== t && o.kind === "rules" && o.when);
+  box.append(el("div", { class: "rule-head" },
+    el("strong", {}, "Look at the answer to:"), whenSel,
+    others.length ? el("select", {
+      class: "copyfrom", title: "Use the same question and the same answers as another column", "aria-label": "Copy the conditions from another column",
+      onchange: (e) => { const o = targets.find((x) => x.id === e.target.value); if (o) { copyConditions(t, o); render(); toast(`Copied the conditions from "${o.name}". Now choose what to use for each one.`); } },
+    }, el("option", { value: "" }, "or copy the conditions from\u2026"), others.map((o) => el("option", { value: o.id }, o.name || "(no name)"))) : null,
+  ));
+  if (t.when && source && !hasRef(t.when)) box.append(el("div", { class: "small warn" }, "Not in this file. Pick another question."));
+  if (!t.when) {
+    box.append(el("p", { class: "small muted" }, "Choose the question whose answer decides what goes in this column (for example \"Type of activity\")."));
+    return box;
+  }
+
+  const answers = distinctValues(t.when);
+  const dlId = "dl-" + t.id;
+  box.append(el("datalist", { id: dlId }, [...answers.keys()].map((a) => el("option", { value: a }))));
+  box.append(el("p", { class: "small muted" }, "The first matching rule wins. Case doesn't matter."));
+
+  const countEls = [];
+  const noteEl = el("div", { class: "small warn unmatched-note", hidden: true });
+  t.rules.forEach((r, k) => {
+    const cnt = el("span", { class: "count small muted" });
+    countEls.push(cnt);
+    box.append(el("div", { class: "rule" },
+      el("span", { class: "num" }, `${k + 1}.`),
+      el("span", {}, "If the answer"),
+      el("select", { class: "op", "aria-label": `Rule ${k + 1}: comparison`, onchange: (e) => { r.op = e.target.value; render(); } },
+        el("option", { value: "is", selected: r.op === "is" }, "is"),
+        el("option", { value: "contains", selected: r.op === "contains" }, "contains"),
+        el("option", { value: "empty", selected: r.op === "empty" }, "is empty (no answer)")),
+      r.op === "empty" ? null : el("input", {
+        type: "text", class: "ans", value: r.value, list: dlId, placeholder: "type or pick an answer", "aria-label": `Rule ${k + 1}: answer`,
+        oninput: (e) => { r.value = e.target.value; updateCounts(t, countEls, noteEl); softRender(); },
+      }),
+      el("span", {}, "\u2192 use"),
+      picker(r.val, false, `Rule ${k + 1}: value to use`),
+      cnt,
+      el("span", { class: "nowrap" },
+        iconBtn("\u2191", `Move rule ${k + 1} up`, { disabled: k === 0, "data-focus": `rup:${k}`, onclick: () => { focusAfter(t, [`rup:${k - 1}`, `rdown:${k - 1}`]); moveIn(t.rules, k, k - 1); } }), " ",
+        iconBtn("\u2193", `Move rule ${k + 1} down`, { disabled: k === t.rules.length - 1, "data-focus": `rdown:${k}`, onclick: () => { focusAfter(t, [`rdown:${k + 1}`, `rup:${k + 1}`]); moveIn(t.rules, k, k + 1); } }), " ",
+        iconBtn("\u00d7", `Remove rule ${k + 1}`, { class: "danger", "data-focus": `rdel:${k}`, onclick: () => { focusAfter(t, [`rdel:${k}`, `rdel:${k - 1}`, "radd"]); t.rules.splice(k, 1); render(); } })),
+    ));
+  });
+
+  const otherCnt = el("span", { class: "count small muted" });
+  countEls.push(otherCnt);
+  box.append(el("div", { class: "rule otherwise" },
+    el("span", {}, t.rules.length ? "Otherwise (no rule matches) \u2192 use" : "Use"), picker(t.otherwise, false, "Otherwise: value to use"), otherCnt));
+
+  box.append(noteEl);
+  const missingAnswers = [...answers.keys()].filter((a) => !t.rules.some((r) => r.op !== "empty" && cmpText(r.value) === cmpText(a)));
+  box.append(el("div", { class: "row", style: "margin-top:8px" },
+    el("button", { class: "small", "data-focus": "radd", onclick: () => { t.rules.push(newRule()); render(); focusLast(`[list="${dlId}"]`); } }, "+ Add a rule"),
+    missingAnswers.length ? el("button", {
+      class: "small", title: missingAnswers.join("\n"),
+      onclick: () => { const n = addRulesForAnswers(t, false); render(); toast(`Added ${plural(n, "rule")}`); },
+    }, `+ Add a rule for each answer found (${missingAnswers.length} missing)`) : null,
+  ));
+
+  updateCounts(t, countEls, noteEl);
+  return box;
+}
+
+/** "Replace text" editor shown under a column. */
+function replaceEditor(t) {
+  const box = el("div", { class: "replace" });
+  box.append(el("div", { class: "rule-head" },
+    el("strong", {}, "Replace text in the result"),
+    el("span", { class: "small muted" }, "Applied in order. Leave \u201cwith\u201d empty to delete the text."),
+  ));
+  // A plain message for a pattern that isn't valid (the browser's own message is kept in the tooltip)
+  const showErr = (errEl, err) => {
+    errEl.textContent = err ? "This pattern isn't valid: check the brackets ( ) [ ] and the special characters like \\ * + ?" : "";
+    errEl.title = err || "";
+  };
+  t.replace.forEach((r, k) => {
+    const err = regexError(r);
+    const errEl = el("div", { class: "small warn", style: "margin-left:28px" });
+    showErr(errEl, err);
+    const flag = (f, on) => { const set = new Set(cleanFlags(r.flags)); if (on) set.add(f); else set.delete(f); r.flags = [...set].join(""); softRender(); };
+    box.append(el("div", { class: "rule" },
+      el("span", { class: "num" }, `${k + 1}.`),
+      el("span", {}, "Replace"),
+      el("input", {
+        type: "text", class: "ans", value: r.find, placeholder: r.regex ? "pattern, e.g. ^\\s+" : "text to find", "aria-label": `Replacement ${k + 1}: text to find`,
+        oninput: (e) => { r.find = e.target.value; showErr(errEl, regexError(r)); softRender(); },
+      }),
+      el("span", {}, "with"),
+      el("input", {
+        type: "text", class: "ans", value: r.with, placeholder: "(nothing)", "aria-label": `Replacement ${k + 1}: replace with`,
+        oninput: (e) => { r.with = e.target.value; softRender(); },
+      }),
+      el("label", { class: "inline small", title: "For advanced users: the text to find is a regular expression. In \u201cwith\u201d, \\1 is the first group and & the whole match." },
+        el("input", { type: "checkbox", checked: r.regex, onchange: (e) => { r.regex = e.target.checked; render(); } }), "Advanced pattern"),
+      r.regex ? el("label", { class: "inline small" },
+        el("input", { type: "checkbox", checked: cleanFlags(r.flags).includes("i"), onchange: (e) => flag("i", e.target.checked) }), "Ignore upper/lower case") : null,
+      r.regex ? el("label", { class: "inline small", title: "Otherwise only the first match is replaced" },
+        el("input", { type: "checkbox", checked: cleanFlags(r.flags).includes("g"), onchange: (e) => flag("g", e.target.checked) }), "Every match") : null,
+      el("span", { class: "nowrap" },
+        iconBtn("\u2191", `Move replacement ${k + 1} up`, { disabled: k === 0, "data-focus": `xup:${k}`, onclick: () => { focusAfter(t, [`xup:${k - 1}`, `xdown:${k - 1}`]); moveIn(t.replace, k, k - 1); } }), " ",
+        iconBtn("\u2193", `Move replacement ${k + 1} down`, { disabled: k === t.replace.length - 1, "data-focus": `xdown:${k}`, onclick: () => { focusAfter(t, [`xdown:${k + 1}`, `xup:${k + 1}`]); moveIn(t.replace, k, k + 1); } }), " ",
+        iconBtn("\u00d7", `Remove replacement ${k + 1}`, { class: "danger", "data-focus": `xdel:${k}`, onclick: () => { focusAfter(t, [`xdel:${k}`, `xdel:${k - 1}`, "xadd", "repl"]); t.replace.splice(k, 1); render(); } })),
+    ), errEl);
+  });
+  box.append(el("div", { class: "row", style: "margin-top:6px" },
+    el("button", { class: "small", "data-focus": "xadd", onclick: () => { t.replace.push(newRepl()); render(); focusLast(`.replace-${t.id} input.ans`); } }, "+ Add a replacement")));
+  box.classList.add(`replace-${t.id}`);
+  return box;
+}
+
+function focusLast(selector) {
+  const all = document.querySelectorAll(selector);
+  all[all.length - 1]?.focus();
+}
+
+function renderSource() {
+  const info = $("#sourceInfo");
+  $("#dropZone").firstElementChild.innerHTML = source ? "<strong>Drag another file here to replace it</strong>" : "<strong>Drag the downloaded file here</strong>";
+  // Step 1 done: its pill goes grey so the eye moves on to step 2
+  $("#step1Pill").classList.toggle("done", !!source);
+  if (!source) { info.textContent = "No file added yet."; return; }
+  const dupes = [...new Set(source.headers.filter((h, i) => source.headers.indexOf(h) !== i))];
+  info.replaceChildren(...[
+    el("span", { class: "file-ok" }, "\u2713 " + source.name), ` : ${plural(source.rows.length, "response")}, ${plural(source.headers.length, "column")}`,
+    dupes.length ? el("div", { class: "muted" }, `Some questions appear several times (e.g. in different form sections): ${dupes.join(", ")}. Use the column letter to tell them apart.`) : null,
+  ].filter(Boolean));
+}
+
+/** Is a mouse button / finger currently pressed? (see commitPosition) */
+let pointerDown = false;
+document.addEventListener("pointerdown", () => { pointerDown = true; }, true);
+document.addEventListener("pointerup", () => { setTimeout(() => { pointerDown = false; }, 0); }, true);
+document.addEventListener("pointercancel", () => { pointerDown = false; }, true);
+
+/**
+ * Move a row to the position typed in its box. When the box is left by clicking something else,
+ * wait until that click is over: moving the row rebuilds the table, which would otherwise remove
+ * the button being clicked and lose the click.
+ */
+function commitPosition(input, t) {
+  // "change" and leaving the box both commit: only the first one counts (until the box is edited again)
+  if (input.committed) return;
+  input.committed = true;
+  const typed = parseInt(input.value, 10);
+  const run = () => {
+    const i = targets.indexOf(t);
+    if (i < 0) return; // the row was removed meanwhile
+    const to = Math.min(targets.length, Math.max(1, typed || i + 1)) - 1;
+    if (to !== i) moveIn(targets, i, to);
+    else if (input.isConnected) input.value = i + 1;
+  };
+  if (pointerDown) document.addEventListener("pointerup", () => setTimeout(run, 0), { once: true });
+  else run();
+}
+
+function renderTable() {
+  const tbody = $("#mapBody");
+  tbody.replaceChildren();
+  $("#startBox").hidden = targets.length > 0;
+  // "Start with all survey questions" needs the responses file: greyed out (with a note) until there is one
+  $("#btnFromSource").disabled = !source;
+  $("#btnFromSource").setAttribute("aria-describedby", source ? "" : "startNeedsFile");
+  $("#startNeedsFile").hidden = !!source;
+  $("#mapArea").hidden = targets.length === 0;
+
+  targets.forEach((t, i) => {
+    const sample = sampleFor(t);
+    const tr = el("tr", { class: t.kind === "rules" ? "has-rules" : "", "data-tid": t.id },
+      el("td", { class: "handle", title: "Drag up or down to change the order", "aria-hidden": "true" }, "\u2261"),
+      el("td", { class: "num" }, el("input", {
+        // A plain text box (no up/down arrows, no mouse-wheel changes): the row only moves once the number is typed
+        type: "text", inputmode: "numeric", class: "ordernum", value: String(i + 1), maxlength: 4,
+        title: "Position of this column. Type a number and press Enter to move it.", "aria-label": `Position of "${t.name || "column " + (i + 1)}"`,
+        oninput: (e) => { e.target.committed = false; const d = e.target.value.replace(/\D/g, ""); if (d !== e.target.value) e.target.value = d; },
+        onkeydown: (e) => { if (e.key === "Enter") { e.preventDefault(); e.target.blur(); } else if (e.key === "Escape") { e.target.value = i + 1; e.target.blur(); } },
+        onfocus: (e) => { e.target.committed = false; e.target.select(); },
+        // Move when the number is committed (change, Enter or leaving the box). Look the row up again and
+        // ignore boxes already removed by a re-render, so one edit can never move the row twice.
+        onchange: (e) => commitPosition(e.target, t),
+        onblur: (e) => commitPosition(e.target, t),
+      })),
+      el("td", {},
+        picker(t, true, `What fills ${colName(t)}`),
+        t.kind === "rules" ? el("div", { class: "small muted" }, "Set up the rules below \u2193") : null,
+        sample ? el("div", { class: "sample", title: sample }, "e.g. " + sample) : null),
+      el("td", { class: "flow", "aria-hidden": "true" }, "\u2192"),
+      el("td", {}, el("input", {
+        type: "text", class: "colname", value: t.name, placeholder: "Notion column name", "aria-label": `Notion column name, row ${i + 1}`,
+        oninput: (e) => { t.name = e.target.value; softRender(); },
+      })),
+      el("td", { class: "nowrap" },
+        t.replace.length ? null : el("button", {
+          class: "icon", title: "Replace some text on the way to Notion (fix spelling, shorten answers\u2026)", "aria-label": `Replace some text in ${colName(t)}`, "data-focus": "repl",
+          onclick: () => { t.replace.push(newRepl()); render(); focusLast(`.replace-${t.id} input.ans`); },
+        }, el("span", { "aria-hidden": "true" }, "a\u2192b")), " ",
+        iconBtn("\u2191", `Move ${colName(t)} up`, { title: "Move up", disabled: i === 0, "data-focus": "up", onclick: () => { focusAfter(t, ["up", "down"]); moveIn(targets, i, i - 1); } }), " ",
+        iconBtn("\u2193", `Move ${colName(t)} down`, { title: "Move down", disabled: i === targets.length - 1, "data-focus": "down", onclick: () => { focusAfter(t, ["down", "up"]); moveIn(targets, i, i + 1); } }), " ",
+        iconBtn("\u00d7", `Remove ${colName(t)}`, { class: "danger", title: "Remove this row", "data-focus": "del", onclick: () => {
+          const next = targets[i + 1] || targets[i - 1], label = colName(t);
+          if (next) focusAfter(next, ["del"]); else pendingFocus = "#btnAdd";
+          targets.splice(i, 1); render(); toast(`Removed ${label}. Press ${isMac ? "\u2318Z" : "Ctrl+Z"} to undo.`);
+        } }),
+      ),
+    );
+    const rows = [tr];
+    if (t.kind === "rules" || t.replace.length) {
+      tr.classList.add("has-extra");
+      rows.push(el("tr", { class: "extra-row", "data-tid": t.id }, el("td", { colspan: "6" },
+        t.kind === "rules" ? rulesEditor(t) : null,
+        t.replace.length ? replaceEditor(t) : null)));
+    }
+
+    // Drag & drop: only start dragging from the handle
+    const handle = tr.firstChild;
+    handle.addEventListener("mousedown", () => { tr.draggable = true; });
+    tr.addEventListener("dragstart", (e) => { dragIndex = i; tr.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(i)); });
+    const clearMarks = () => tbody.querySelectorAll(".drag-over, .drag-after").forEach((r) => r.classList.remove("drag-over", "drag-after"));
+    tr.addEventListener("dragend", () => { tr.draggable = false; tr.classList.remove("dragging"); dragIndex = null; clearMarks(); });
+    // Drop above this row when over its top half, below it when over its bottom half (or its rules):
+    // the line shows exactly where the row will land
+    const isAfter = (r, e) => { if (r !== tr) return true; const b = tr.getBoundingClientRect(); return e.clientY > b.top + b.height / 2; };
+    for (const r of rows) {
+      r.addEventListener("dragover", (e) => {
+        if (dragIndex === null) return;
+        e.preventDefault();
+        clearMarks();
+        if (isAfter(r, e)) rows[rows.length - 1].classList.add("drag-after"); else tr.classList.add("drag-over");
+      });
+      r.addEventListener("drop", (e) => {
+        e.preventDefault();
+        if (dragIndex === null) return;
+        const at = isAfter(r, e) ? i + 1 : i;          // insert before this position...
+        const to = at > dragIndex ? at - 1 : at;       // ...counted once the dragged row is taken out
+        clearMarks();
+        if (to !== dragIndex) moveIn(targets, dragIndex, to);
+      });
+    }
+    tbody.append(...rows);
+  });
+}
+document.addEventListener("mouseup", () => { if (dragIndex === null) document.querySelectorAll("#mapBody tr[draggable=true]").forEach((r) => { r.draggable = false; }); });
+
+function renderUnused() {
+  const box = $("#unusedBox"), chips = $("#unusedChips");
+  chips.replaceChildren();
+  if (!source) { box.hidden = true; return; }
+  const used = usedIndexes();
+  const unused = allRefs().filter((r) => !used.has(r.index));
+  box.hidden = unused.length === 0;
+  for (const r of unused) {
+    chips.append(el("button", { class: "chip", title: refLabel(r), onclick: () => { targets.push(newTarget(r.name, r)); render(); } }, refLabel(r)));
+  }
+}
+
+/** Column names Notion can't import as they are (empty or the same twice), in a sentence; "" if none. */
+function nameProblems() {
+  const names = targets.map((t) => t.name.trim());
+  const empty = names.filter((n) => !n).length;
+  const dup = [...new Set(names.filter((n, i) => n && names.findIndex((x) => x.toLowerCase() === n.toLowerCase()) !== i))];
+  return [empty ? `${plural(empty, "column")} ${empty === 1 ? "has" : "have"} no name.` : "",
+    dup.length ? `Several columns have the same name (${dup.join(", ")}).` : ""].filter(Boolean).join(" ");
+}
+
+function renderWarnings() {
+  const ul = $("#warnings");
+  const w = [];
+  const names = targets.map((t) => t.name.trim());
+  if (names.some((n) => !n)) w.push("Some rows have no Notion column name yet. Type one in the \"To the Notion column\" box.");
+  const dup = [...new Set(names.filter((n, i) => n && names.findIndex((x) => x.toLowerCase() === n.toLowerCase()) !== i))];
+  if (dup.length) w.push(`Two or more columns have the same name (${dup.join(", ")}). Notion needs each name to be different.`);
+  targets.forEach((t, i) => {
+    const label = `"${t.name.trim() || "column " + (i + 1)}"`;
+    if (t.kind === "rules") {
+      if (!t.when) w.push(`${label}: choose which question's answer it depends on.`);
+      const blank = t.rules.filter((r) => r.op !== "empty" && !r.value.trim()).length;
+      if (blank) w.push(`${label}: ${plural(blank, "rule")} without an answer to compare with (ignored).`);
+    }
+    const badRe = t.replace.filter((r) => regexError(r)).length;
+    if (badRe) w.push(`${label}: ${plural(badRe, "replacement")} with a pattern that isn't valid (ignored).`);
+  });
+  if (source) {
+    const miss = targets.filter((t) => activeRefs(t).some((r) => !hasRef(r)));
+    if (miss.length) w.push(`${miss.map((t) => `"${t.name}"`).join(", ")}: some questions aren't in this file, so they'll be blank.`);
+  }
+  if (formulaCells) w.push(`${plural(formulaCells.count, "answer")} start${formulaCells.count === 1 ? "s" : ""} with = + - or @ (e.g. in ${formulaCells.cols.map((c) => `\u201c${c}\u201d`).join(", ")}). Notion shows them as they are, but if you open the downloaded file in Excel they could run as formulas.`);
+  ul.replaceChildren(...w.map((x) => el("li", {}, x)));
+  ul.hidden = w.length === 0;
+  const dl = $("#dlWarn");
+  dl.hidden = !w.length;
+  dl.replaceChildren(...(w.length ? [`\u26a0 ${plural(w.length, "warning")} in step 2 `, el("a", { href: "#warnings", onclick: (e) => { e.preventDefault(); $("#warnings").scrollIntoView({ behavior: "smooth", block: "center" }); } }, "(see them)")] : []));
+}
+
+/** Answers that would act as formulas if the downloaded file is opened in Excel: { count, cols } or null. */
+let formulaCells = null;
+function computeFormulaCells(output) {
+  let count = 0;
+  const cols = new Set();
+  // (plain numbers like -5 or +3,5 are fine: Excel reads them as numbers)
+  output.rows.forEach((r) => r.forEach((v, j) => { if (/^[=+\-@]/.test(v) && !/^[-+]?\d+([.,]\d+)?$/.test(v)) { count++; cols.add(output.header[j] || `column ${j + 1}`); } }));
+  formulaCells = count ? { count, cols: [...cols].slice(0, 3) } : null;
+}
+
+/* ---------- Answer check card ---------- */
+const valDesc = (v) => v.kind === "column" && v.src ? refLabel(v.src) : v.kind === "fixed" && v.text !== "" ? `\u201c${v.text}\u201d` : "nothing";
+function rowsText(rows) {
+  const r = rows.map((i) => source.sheetRows?.[i] ?? i + 2);
+  const shown = r.slice(0, 8).join(", ");
+  return (r.length === 1 ? "row " : "rows ") + shown + (r.length > 8 ? ` and ${r.length - 8} more` : "");
+}
+function showTargetRow(t) {
+  const tr = document.querySelector(`#mapBody tr[data-tid="${t.id}"]`);
+  if (!tr) return;
+  tr.scrollIntoView({ behavior: "smooth", block: "center" });
+  document.querySelectorAll(`#mapBody tr[data-tid="${t.id}"]`).forEach((r) => { r.classList.remove("flash"); void r.offsetWidth; r.classList.add("flash"); });
+}
+
+let checkCache = null; // [{ t, a }] computed once per softRender
+function computeChecks() {
+  checkCache = targets.map((t) => ({ t, a: analyzeTarget(t) })).filter((x) => x.a && x.a.unmatched.length);
+  return checkCache;
+}
+
+function renderChecks() {
+  const list = checkCache || computeChecks();
+  const card = $("#checkCard");
+  const nAnswers = list.reduce((n, x) => n + x.a.unmatched.length, 0);
+  const nRows = list.reduce((n, x) => n + x.a.flaggedRows, 0);
+  card.hidden = !list.length;
+  if (!list.length) return;
+  $("#checkCount").textContent = `${plural(nAnswers, "answer")}, ${plural(nRows, "response")}, ${plural(list.length, "column")}`;
+
+  const box = $("#checkList");
+  const openState = new Map([...box.querySelectorAll("details[data-tid]")].map((d) => [d.dataset.tid, d.open]));
+  box.replaceChildren(...list.map(({ t, a }) => {
+    const items = [];
+    for (const g of a.unmatched) {
+      const actions = [];
+      const near = g.near.map((n) => {
+        const r = t.rules[n.k];
+        const opWord = r.op === "contains" ? "contains" : "is";
+        const btns = [];
+        // Main suggestion: "contains" when it applies (fixes every variant at once), else fix an unused rule, else add a rule
+        const containsApplies = n.contains && r.op === "is";
+        // Changing the text is only safe for an "is" rule that matches nothing: a "contains" rule with a
+        // longer text could start catching answers that later rules match today
+        if (n.unused && r.op === "is") {
+          btns.push(el("button", {
+            class: "small" + (containsApplies ? "" : " primary"), title: `Rule ${n.k + 1} doesn't match any response yet, so changing its text is safe`,
+            onclick: () => { r.value = g.answer; render(); toast(`Rule ${n.k + 1} now uses \u201c${g.answer}\u201d`); },
+          }, `Fix rule ${n.k + 1}: \u201c${r.value.trim()}\u201d \u2192 \u201c${g.answer}\u201d`));
+        }
+        btns.push(el("button", {
+          class: "small" + (n.unused || containsApplies ? "" : " primary"), title: `Add the rule \u201cIf the answer is ${g.answer} \u2192 use ${valDesc(r.val)}\u201d right after rule ${n.k + 1}`,
+          onclick: () => { t.rules.splice(n.k + 1, 0, { op: "is", value: g.answer, val: cloneVal(r.val) }); render(); toast(`Added a rule for \u201c${g.answer}\u201d`); },
+        }, `Use the same as rule ${n.k + 1} for this answer`));
+        if (containsApplies) {
+          const side = containsSideEffects(t, n.k, g.answer);
+          btns.unshift(el("button", {
+            class: "small primary",
+            title: side.length ? `This would also change the result for: ${side.join(", ")}` : "No other answer is affected",
+            onclick: () => { r.op = "contains"; render(); toast(`Rule ${n.k + 1} now matches every answer that contains \u201c${r.value.trim()}\u201d`); },
+          }, `Change rule ${n.k + 1} to \u201ccontains\u201d` + (side.length ? ` (also changes ${plural(side.length, "other answer")})` : "")));
+        }
+        actions.push(...btns);
+        return el("div", { class: "small near" },
+          `Close to rule ${n.k + 1}: if the answer ${opWord} \u201c${r.value.trim()}\u201d \u2192 use ${valDesc(r.val)}. Why: ${n.why}.`,
+          n.unused ? el("span", { class: "warn" }, ` Rule ${n.k + 1} matches no response, so its text probably has a typo.`) : null);
+      });
+      if (!g.near.length) {
+        actions.push(el("button", {
+          class: "small primary",
+          onclick: () => { t.rules.push({ op: "is", value: g.answer, val: emptyVal() }); render(); showTargetRow(t); toast(`Added a rule for \u201c${g.answer}\u201d: choose what to use for it`); },
+        }, "Add a rule for this answer"));
+      }
+      actions.push(el("button", {
+        class: "small",
+        title: "Adds a rule for this answer with the current \u201cOtherwise\u201d value, so it is no longer flagged. If you change \u201cOtherwise\u201d later, this rule keeps the current value.",
+        onclick: () => { t.rules.push({ op: "is", value: g.answer, val: cloneVal(t.otherwise) }); render(); toast(`\u201c${g.answer}\u201d is now expected`); },
+      }, a.otherwiseBlank ? "Leave it blank on purpose" : "This is expected"));
+      items.push(el("div", { class: "check-item" },
+        el("div", {}, el("span", { class: "ans-text" }, g.answer), ` \u2014 ${plural(g.rows.length, "response")} (${rowsText(g.rows)}) `,
+          el("span", { class: "muted" }, `\u2192 no rule matches, gets ${valDesc(t.otherwise)}`)),
+        near,
+        el("div", { class: "row" }, actions)));
+    }
+    const d = el("details", { class: "check-col", "data-tid": t.id, open: openState.get(t.id) ?? true },
+      el("summary", {}, el("strong", {}, t.name.trim() || "(no name)"),
+        el("span", { class: "muted" }, ` \u2014 depends on ${refLabel(t.when)}`)),
+      el("div", { class: "check-show" }, el("button", { class: "small", onclick: () => showTargetRow(t) }, "Show in the table")),
+      items);
+    return d;
+  }));
+}
+
+function renderPreview() {
+  const table = $("#previewTable");
+  const info = $("#previewInfo");
+  table.replaceChildren();
+  const canExport = !!source && targets.length > 0;
+  $("#btnDownload").disabled = !canExport;
+  $("#btnCopy").disabled = !canExport;
+  if (!canExport) {
+    info.textContent = !source && !targets.length ? "Complete steps 1 and 2 to see the result here."
+      : !source ? "Add your survey responses in step 1 to see the result here."
+      : "Choose the Notion columns in step 2 to see the result here.";
+    $("#previewWrap").hidden = true;
+    return;
+  }
+  $("#previewWrap").hidden = false;
+  const LIMIT = 50;
+  const { header, rows } = buildOutput(LIMIT);
+  const total = source.rows.length;
+  table.append(el("thead", {}, el("tr", {}, header.map((h) => el("th", {}, h || "(no name)")))));
+  // Cells of responses whose answer matches no rule (see the answer check)
+  const flags = new Map();
+  for (const { t, a } of checkCache || []) {
+    const ti = targets.indexOf(t);
+    for (const g of a.unmatched) for (const i of g.rows) flags.set(`${i}:${ti}`, g.answer);
+  }
+  const tb = el("tbody");
+  rows.slice(0, LIMIT).forEach((r, i) => tb.append(el("tr", {}, r.map((v, j) => {
+    const f = flags.get(`${i}:${j}`);
+    return f !== undefined
+      ? el("td", { class: "flag", title: `No rule matches the answer \u201c${f}\u201d` + (v ? `\n\n${v}` : "") }, v || "\u26a0")
+      : el("td", { title: v }, v);
+  }))));
+  table.append(tb);
+  info.textContent = `This is what Notion will receive: ${plural(total, "row")} and ${plural(header.length, "column")}${total > LIMIT ? ` (only the first ${LIMIT} rows are shown here)` : ""}.`;
+}
+
+let compatCache = { source: null, map: new Map() };
+function renderSaved() {
+  const info = $("#activeInfo");
+  const m = activeMapId && maps[activeMapId];
+  const dirty = isDirty();
+  info.replaceChildren(
+    m ? el("span", {}, "Using: ", el("strong", {}, m.name), " ", dirty ? el("span", { class: "badge" }, "changes not saved") : el("span", { class: "ok" }, "\u2713 saved"))
+      : targets.length ? el("span", {}, el("span", { class: "badge" }, "not saved yet"), " Type a name below and click Save.")
+      : el("span", { class: "muted" }, "Nothing to save yet."),
+  );
+  const typed = $("#mapName").value.trim();
+  const newName = !!m && !!typed && typed.toLowerCase() !== m.name.toLowerCase();
+  $("#btnSave").disabled = !targets.length || (!!m && !dirty && !newName && typed === m.name);
+  $("#btnSave").textContent = newName ? "Save as a new setup" : m ? "Save changes" : "Save";
+  $("#btnSave").title = "";
+  $("#saveHint").hidden = !newName;
+  if (newName) $("#saveHint").textContent = `Saving creates \u201c${typed}\u201d and keeps \u201c${m.name}\u201d as it is. To rename \u201c${m.name}\u201d instead, use Rename in the list.`;
+  $("#btnSaveAs").hidden = !m || newName;
+
+  const list = $("#mapList");
+  list.replaceChildren();
+  const all = Object.values(maps).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  $("#mapListEmpty").hidden = all.length > 0;
+  if (compatCache.source !== source) compatCache = { source, map: new Map() };
+  for (const mp of all) {
+    let compat = null;
+    if (source) {
+      // Does this setup work with the file? Only worked out again when the setup or the file changes
+      const ck = mp.updatedAt + "|" + mp.targets.length;
+      let c = compatCache.map.get(mp.id);
+      if (!c || c.key !== ck) {
+        const refs = hydrateTargets(mp.targets).flatMap(activeRefs);
+        c = { key: ck, total: refs.length, ok: refs.filter((r) => hasRef(r) || rebindRef({ ...r })).length };
+        compatCache.map.set(mp.id, c);
+      }
+      const refs = { length: c.total }, ok = c.ok;
+      compat = el("div", { class: ok === refs.length ? "ok" : "warn" },
+        ok === refs.length ? "\u2713 Works with the file you added" : `${refs.length - ok} of ${refs.length} questions not found in the file you added`);
+    }
+    const isActive = mp.id === activeMapId;
+    list.append(el("li", { class: isActive ? "active" : "" },
+      el("div", { class: "name" }, mp.name),
+      el("div", { class: "small muted" }, `${plural(mp.targets.length, "column")}, saved ${fmtDate(mp.updatedAt)}`, compat),
+      el("div", { class: "actions" },
+        el("button", {
+          class: "small primary", disabled: isActive && !dirty,
+          title: isActive ? "Go back to the last saved version" : "Use this setup",
+          onclick: () => loadMapping(mp.id),
+        }, isActive ? (dirty ? "Back to saved version" : "In use") : "Use"),
+        el("button", { class: "small", onclick: () => renameMapping(mp.id) }, "Rename"),
+        el("button", { class: "small", onclick: () => duplicateMapping(mp.id) }, "Make a copy"),
+        el("button", { class: "small danger", onclick: () => deleteMapping(mp.id) }, "Delete"),
+      ),
+    ));
+  }
+}
+
+/**
+ * Keyboard focus across a full re-render (the column table is rebuilt, so the focused control is
+ * replaced by a new one). Handlers can ask for a precise control with focusAfter(); otherwise the
+ * control at the same place in the same row gets the focus back.
+ */
+let pendingFocus = null; // { tid, keys: [data-focus keys to try, in order] } or a CSS selector
+function focusAfter(t, keys) { pendingFocus = { tid: t.id, keys }; }
+
+function focusPath() {
+  const a = document.activeElement;
+  if (!a || a === document.body) return null;
+  const row = a.closest?.("#mapBody tr[data-tid]");
+  if (row) {
+    const tid = row.dataset.tid;
+    const all = [...document.querySelectorAll(`#mapBody tr[data-tid="${tid}"] :is(input,select,button)`)];
+    return { tid, index: all.indexOf(a), pos: targets.findIndex((t) => t.id === tid) };
+  }
+  const item = a.closest?.("#checkList .check-col");
+  if (item) return { check: [...$("#checkList").querySelectorAll("button")].indexOf(a), tid: item.dataset.tid };
+  return null;
+}
+const focusable = (e) => e && !e.disabled && e.isConnected && !e.closest("[hidden]");
+function restoreFocus(path) {
+  const go = (e) => { if (focusable(e)) { e.focus({ preventScroll: true }); return true; } return false; };
+  const req = pendingFocus;
+  pendingFocus = null;
+  // With no rows left, "+ Add a row" is hidden with the table: use the first way of starting instead
+  const addOrStart = () => go($("#btnAdd")) || [...document.querySelectorAll("#startBox button")].some(go);
+  if (typeof req === "string") return req === "#btnAdd" ? addOrStart() : go($(req));
+  if (req) {
+    for (const k of req.keys) if (go(document.querySelector(`#mapBody tr[data-tid="${req.tid}"] [data-focus="${k}"]`))) return true;
+    if (go(document.querySelector(`#mapBody tr[data-tid="${req.tid}"] input.colname`))) return true;
+  }
+  if (!path) return false;
+  if (path.check !== undefined && path.check >= 0) {
+    // After a fix in the answer check: the next suggestion, or the column in the table once it has none left
+    const btns = [...$("#checkList").querySelectorAll("button")];
+    if (!$("#checkCard").hidden && btns.length) return go(btns[Math.min(path.check, btns.length - 1)]);
+    return go(document.querySelector(`#mapBody tr[data-tid="${path.tid}"] input.colname`)) || addOrStart();
+  }
+  let tid = path.tid;
+  if (!document.querySelector(`#mapBody tr[data-tid="${tid}"]`)) {
+    const t = targets[Math.min(path.pos, targets.length - 1)];
+    if (!t) return addOrStart();
+    tid = t.id;
+  }
+  const all = [...document.querySelectorAll(`#mapBody tr[data-tid="${tid}"] :is(input,select,button)`)];
+  const i = Math.max(0, Math.min(path.index, all.length - 1));
+  // The same control, or the closest one that can be used (e.g. "move down" once the row is last)
+  for (let d = 0; d < all.length; d++) if (go(all[i + d]) || go(all[i - d])) return true;
+  return false;
+}
+
+/** Full re-render (rebuilds the column table, keeping the keyboard focus). */
+function render() {
+  const path = focusPath();
+  renderSource();
+  renderTable();
+  renderUnused();
+  softRender(true);
+  restoreFocus(path);
+}
+
+/**
+ * Re-render everything except the column table (keeps keyboard focus while typing).
+ * With a large responses file, the heavy part (answer check, Excel check, text view, Sheets
+ * formulas, autosave) waits until typing pauses for a moment, so typing stays smooth.
+ */
+const HEAVY_DELAY_MS = 150;
+let heavyTimer = null;
+const isLarge = () => !!source && source.rows.length * Math.max(1, targets.length) > 20000;
+function softRender(flush = false) {
+  recordHistory();
+  renderHistoryButtons();
+  renderSaved();
+  if (flush || !isLarge()) return runHeavy();
+  renderWarnings();
+  renderPreview();
+  clearTimeout(heavyTimer);
+  heavyTimer = setTimeout(runHeavy, HEAVY_DELAY_MS);
+}
+function runHeavy() {
+  clearTimeout(heavyTimer);
+  heavyTimer = null;
+  computeChecks();
+  computeFormulaCells(buildOutput());
+  renderWarnings();
+  renderChecks();
+  renderPreview();
+  renderTextView();
+  renderSheetsExport();
+  persistCurrent();
+}
+// Never lose the last edits by closing the page during the short wait
+window.addEventListener("pagehide", () => { if (heavyTimer) runHeavy(); });
+
+/* =====================================================================
+   Undo / redo
+   ---------------------------------------------------------------------
+   Every change to the columns ends in softRender(), which records a
+   snapshot here when something actually changed. Bursts of typing in the
+   same text box are grouped into a single step.
+   ===================================================================== */
+const HISTORY_LIMIT = 200;
+const TYPING_GROUP_MS = 1500;
+const undoHistory = { past: [], future: [], current: null, lastKey: null, lastTime: 0 };
+
+/**
+ * A history entry: the columns, plus which saved setup they belong to (so that undoing
+ * "Use this setup" also goes back to the previous setup, and "Save changes" can't write
+ * the previous columns into the wrong setup).
+ */
+function snapshotState() {
+  const ser = serializeTargets(targets);
+  return { cols: JSON.stringify(targets.map((t, i) => ({ id: t.id, ...ser[i] }))), mapId: activeMapId, name: $("#mapName").value };
+}
+
+function recordHistory() {
+  const snap = snapshotState();
+  if (undoHistory.current === null) { undoHistory.current = snap; return; }
+  if (snap.cols === undoHistory.current.cols) {
+    // Same columns (e.g. just saved, or saved as a new setup): not an undo step, but remember the setup now in use
+    undoHistory.current = snap;
+    return;
+  }
+  const a = document.activeElement;
+  const key = a && a.tagName === "INPUT" && a.type === "text" && a.closest("#mapBody") ? a : null;
+  const now = Date.now();
+  const grouped = key && key === undoHistory.lastKey && now - undoHistory.lastTime < TYPING_GROUP_MS;
+  if (!grouped) {
+    undoHistory.past.push(undoHistory.current);
+    if (undoHistory.past.length > HISTORY_LIMIT) undoHistory.past.shift();
+  }
+  undoHistory.future = [];
+  undoHistory.current = snap;
+  undoHistory.lastKey = key;
+  undoHistory.lastTime = now;
+}
+
+/**
+ * After saving under another setup (save as new, or replacing a setup with the same name), the
+ * recent history belongs to that setup: undoing must not switch back to the old one, or
+ * "Save changes" would then write into the setup the user meant to keep unchanged.
+ * Only the most recent run of steps is moved; steps from before an earlier "Use" keep their setup.
+ */
+function retargetHistory(fromId, toId) {
+  if (fromId === toId) return;
+  if (undoHistory.current) undoHistory.current = { ...undoHistory.current, mapId: toId };
+  for (const stack of [undoHistory.past, undoHistory.future]) {
+    for (let i = stack.length - 1; i >= 0 && stack[i].mapId === fromId; i--) stack[i] = { ...stack[i], mapId: toId };
+  }
+}
+
+function applySnapshot(snap) {
+  const list = JSON.parse(snap.cols);
+  const hydrated = hydrateTargets(list);
+  hydrated.forEach((t, i) => { t.id = list[i].id; });
+  targets = hydrated;
+  const mapId = snap.mapId && maps[snap.mapId] ? snap.mapId : null; // the setup may have been deleted since
+  if (mapId !== activeMapId) {
+    activeMapId = mapId;
+    $("#mapName").value = mapId ? maps[mapId].name : snap.name;
+  }
+  textDirty = false;
+  $("#textErrors").hidden = true;
+  undoHistory.current = { ...snap, mapId };
+  undoHistory.lastKey = null;
+  render(); // keeps the focus on the same control
+}
+
+/** Undo/redo replace the columns: edits typed in "Edit as text" and not applied would be lost. */
+function okToDropTextEdits(what) {
+  return !textDirty || confirm(`You have edits in \u201cEdit as text\u201d that are not applied yet. ${what} anyway and discard them?`);
+}
+function undo() {
+  if (!undoHistory.past.length) return toast("Nothing to undo");
+  if (!okToDropTextEdits("Undo")) return;
+  undoHistory.future.push(undoHistory.current);
+  applySnapshot(undoHistory.past.pop());
+  toast("Undone");
+}
+function redo() {
+  if (!undoHistory.future.length) return toast("Nothing to redo");
+  if (!okToDropTextEdits("Redo")) return;
+  undoHistory.past.push(undoHistory.current);
+  applySnapshot(undoHistory.future.pop());
+  toast("Redone");
+}
+
+function renderHistoryButtons() {
+  $("#btnUndo").disabled = !undoHistory.past.length;
+  $("#btnRedo").disabled = !undoHistory.future.length;
+}
+
+/* =====================================================================
+   Text view (advanced)
+   ---------------------------------------------------------------------
+   One statement per Notion column, in output order, written from the
+   Google Form to Notion. Indented lines continue the previous statement.
+   Lines starting with # are comments.
+
+     FROM => Notion name                        FROM: J | [Title] | [Title#2] | "text" | blank
+     J ? "Conférence": R | ~"conf": Q | else: blank  => Notion name
+     R {s/^\s+//; "Québec" -> "QC"}  => Notion name   s/// = regular expression (sed style), "a" -> "b" = plain text
+   ===================================================================== */
+const quoteStr = (s) => '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n").replace(/\r/g, "\\r").replace(/\t/g, "\\t") + '"';
+
+function colTok(ref) {
+  const i = refIndex(ref);
+  if (i >= 0) return colLetter(i);
+  let t = ref.name.replace(/\\/g, "\\\\").replace(/\]/g, "\\]").replace(/\n/g, "\\n");
+  if (ref.nth) t += "#" + (ref.nth + 1);
+  else if (/#\d+$/.test(t)) t += "#1";
+  return `[${t}]`;
+}
+function valTok(v) {
+  if (v.kind === "column" && v.src) return colTok(v.src);
+  if (v.kind === "fixed" && v.text !== "") return quoteStr(v.text);
+  return "blank";
+}
+function nameTok(n) { return /^\s|\s$|^"|^$|\n/.test(n) ? quoteStr(n) : n; }
+function subTok(r) {
+  if (!r.regex) return `${quoteStr(r.find)} -> ${quoteStr(r.with)}`;
+  const esc = (x) => x.replace(/(\\.)|\//g, (m, e) => e || "\\/");
+  return `s/${esc(r.find)}/${esc(r.with)}/${cleanFlags(r.flags)}`;
+}
+
+function genText(list = targets) {
+  const parts = list.map((t) => {
+    const multi = t.kind === "rules" && !!t.when;
+    let from;
+    if (multi) {
+      const cases = t.rules.map((r) => r.op === "empty" ? `empty: ${valTok(r.val)}` : `${r.op === "contains" ? "~" : ""}${quoteStr(r.value)}: ${valTok(r.val)}`);
+      cases.push(`else: ${valTok(t.otherwise)}`);
+      from = `${colTok(t.when)} ? ${cases[0]}` + cases.slice(1).map((c) => "\n    | " + c).join("");
+    } else {
+      from = valTok(t.kind === "rules" ? t.otherwise : t);
+    }
+    if (t.replace.length) from += (multi ? "\n    " : " ") + "{" + t.replace.map(subTok).join("; ") + "}";
+    return { from, multi, name: nameTok(t.name) };
+  });
+  // Line up the arrows of the one-line statements
+  const width = Math.max(0, ...parts.filter((x) => !x.multi && x.from.length <= 12).map((x) => x.from.length));
+  return parts.map((x) => x.multi ? `${x.from}\n    => ${x.name}` : `${x.from.padEnd(width)}  => ${x.name}`).join("\n");
+}
+
+function letterIndex(L) { let n = 0; for (const ch of L) n = n * 26 + (ch.charCodeAt(0) - 64); return n - 1; }
+
+function parseStatement(s) {
+  let p = 0;
+  const fail = (msg) => { throw new Error(`${msg} (near \u201c${s.slice(p, p + 25) || "end of line"}\u201d)`); };
+  const ws = () => { while (p < s.length && /\s/.test(s[p])) p++; };
+  const peek = (x) => { ws(); return s.startsWith(x, p); };
+  const keyword = (k) => { ws(); if (s.startsWith(k, p) && !/[\w]/.test(s[p + k.length] || "")) { p += k.length; return true; } return false; };
+  const expect = (x, what) => { if (!peek(x)) fail(`expected ${what || "\u201c" + x + "\u201d"}`); p += x.length; };
+  const str = () => {
+    ws();
+    if (s[p] !== '"') fail("expected text in double quotes");
+    p++;
+    let r = "";
+    while (p < s.length) {
+      const c = s[p++];
+      if (c === "\\" && p < s.length) { const d = s[p++]; r += d === "n" ? "\n" : d === "r" ? "\r" : d === "t" ? "\t" : d; continue; }
+      if (c === '"') return r;
+      r += c;
+    }
+    fail("missing closing quote");
+  };
+  const colref = () => {
+    ws();
+    if (s[p] === "[") {
+      p++;
+      let r = "";
+      while (p < s.length && s[p] !== "]") {
+        if (s[p] === "\\" && p + 1 < s.length) { r += s[p + 1] === "n" ? "\n" : s[p + 1]; p += 2; continue; }
+        r += s[p++];
+      }
+      if (s[p] !== "]") fail("missing \u201c]\u201d");
+      p++;
+      const m = r.match(/^([\s\S]*)#(\d+)$/);
+      return m ? { name: m[1].trim(), nth: Math.max(0, +m[2] - 1) } : { name: r.trim(), nth: 0 };
+    }
+    const m = /^[A-Z]{1,3}(?![\w])/.exec(s.slice(p));
+    if (!m) return null;
+    if (!source) fail(`the column letter ${m[0]} needs a responses file: add one in step 1, or write the question title like [Titre]`);
+    const ref = allRefs()[letterIndex(m[0])];
+    if (!ref) fail(`there is no column ${m[0]} in the responses file (the last one is ${colLetter(source.headers.length - 1)})`);
+    p += m[0].length;
+    return cloneRef(ref);
+  };
+  const value = () => {
+    ws();
+    if (keyword("blank")) return emptyVal();
+    if (s[p] === '"') { const t = str(); return t === "" ? emptyVal() : { kind: "fixed", src: null, text: t }; }
+    const r = colref();
+    if (!r) fail("expected a column letter, [Question title], \"text\" or blank");
+    return { kind: "column", src: r, text: "" };
+  };
+  const sub = () => {
+    ws();
+    if (s[p] === '"') {
+      const f = str();
+      expect("->", "\u201c->\u201d");
+      return { find: f, with: str(), regex: false, flags: "g" };
+    }
+    if (s[p] !== "s" || p + 1 >= s.length || /[\w\s\\]/.test(s[p + 1])) fail('expected s/find/replace/ or "find" -> "replace"');
+    const d = s[p + 1];
+    p += 2;
+    const part = () => {
+      let r = "";
+      while (p < s.length && s[p] !== d) {
+        if (s[p] === "\\" && p + 1 < s.length) { r += s[p + 1] === d ? d : s[p] + s[p + 1]; p += 2; continue; }
+        r += s[p++];
+      }
+      if (s[p] !== d) fail(`missing closing \u201c${d}\u201d in s${d}\u2026${d}\u2026${d}`);
+      p++;
+      return r;
+    };
+    const find = part(), w = part();
+    const fl = /^[a-z]*/.exec(s.slice(p))[0];
+    p += fl.length;
+    const bad = fl.replace(/[gimsu]/g, "");
+    if (bad) fail(`unknown flag \u201c${bad}\u201d (use g, i, m, s or u)`);
+    const r = { find, with: w, regex: true, flags: fl };
+    const err = regexError(r);
+    if (err) fail(`invalid pattern: ${err}`);
+    return r;
+  };
+
+  const t = newTarget("");
+
+  // Where it comes from (Google Form side)
+  let v;
+  try { v = value(); }
+  catch (e) {
+    if (!e.message.startsWith("expected a column letter")) throw e;
+    throw new Error(`${e.message}. Lines are written: where it comes from => Notion column name, e.g. J => Type`);
+  }
+  if (peek("?")) {
+    if (v.kind !== "column") fail("only a column can be used before \u201c?\u201d");
+    p++;
+    t.kind = "rules";
+    t.when = v.src;
+    for (;;) {
+      if (keyword("else")) { expect(":"); t.otherwise = value(); }
+      else if (keyword("empty")) { expect(":"); t.rules.push({ op: "empty", value: "", val: value() }); }
+      else {
+        let op = "is";
+        if (peek("~")) { op = "contains"; p++; }
+        const ans = str();
+        expect(":");
+        t.rules.push({ op, value: ans, val: value() });
+      }
+      if (peek("|")) { p++; continue; }
+      break;
+    }
+  } else {
+    Object.assign(t, { kind: v.kind, src: v.src, text: v.text });
+  }
+
+  // Replacements
+  if (peek("{")) {
+    p++;
+    for (;;) {
+      if (peek("}")) break;
+      t.replace.push(sub());
+      if (peek(";") || peek(",")) { p++; continue; }
+      if (peek("}")) break;
+      fail("expected \u201c;\u201d or \u201c}\u201d");
+    }
+    expect("}");
+  }
+
+  // Where it goes (Notion side)
+  expect("=>", "\u201c=> Notion column name\u201d");
+  ws();
+  if (s[p] === '"') {
+    t.name = str();
+    ws();
+    if (p < s.length) fail("unexpected text after the Notion column name");
+  } else {
+    t.name = s.slice(p).trim();
+    p = s.length;
+  }
+  if (!t.name) fail("missing the Notion column name after \u201c=>\u201d");
+  return t;
+}
+
+function parseText(text) {
+  const stmts = [];
+  text.replace(/\r/g, "").split("\n").forEach((line, i) => {
+    if (/^\s*(#|$)/.test(line)) return;
+    if (/^\s/.test(line) && stmts.length) stmts[stmts.length - 1].text += " " + line.trim();
+    else stmts.push({ line: i + 1, text: line.trim() });
+  });
+  const out = [], errors = [];
+  for (const st of stmts) {
+    try { out.push(parseStatement(st.text)); }
+    catch (e) { errors.push(`Line ${st.line}: ${e.message}`); }
+  }
+  return { targets: out, errors };
+}
+
+let textDirty = false;
+let textBase = ""; // the columns, as text, when editing the text started (to notice table changes made meanwhile)
+function renderTextView() {
+  const ta = $("#textArea");
+  if (!textDirty) ta.value = textBase = genText();
+  $("#textApply").disabled = !textDirty;
+  $("#textDiscard").disabled = !textDirty;
+  $("#textState").textContent = textDirty ? "You have edited the text: click \u201cApply\u201d to update the columns." : "";
+}
+
+/* =====================================================================
+   Google Sheets formulas
+   ---------------------------------------------------------------------
+   Import: formulas copied from Google Sheets (View → Show → Formulas) are
+   parsed and turned into columns. Supported:
+     'Sheet'!J2 · "text" · IFS(cond; value; …; TRUE; value) · nested IF ·
+     SWITCH(J2; "a"; v; …; default)
+     conditions: J2="a" · ISNUMBER(SEARCH("a"; J2)) · REGEXMATCH(J2; "a") · EXACT
+     wrappers:   SUBSTITUTE · REGEXREPLACE · TRIM · IFERROR · IFNA · ARRAYFORMULA
+   Both "," and ";" are accepted as argument separators.
+   Export: the reverse, one formula per Notion column.
+   ===================================================================== */
+const LS_SHEETS = "swizzle.sheets.v1";
+
+function tokenizeFormula(src) {
+  const toks = [];
+  // With ";" between arguments (French settings), 1,5 is a number with a decimal comma
+  const semicolons = /;/.test(src.replace(/"(?:[^"]|"")*"|'(?:[^']|'')*'/g, ""));
+  let i = 0;
+  const n = src.length;
+  const quoted = (q, what) => {
+    let s = "";
+    i++;
+    for (;;) {
+      if (i >= n) throw new Error(`missing closing ${q} ${what}`);
+      if (src[i] === q) { if (src[i + 1] === q) { s += q; i += 2; continue; } i++; return s; }
+      s += src[i++];
+    }
+  };
+  while (i < n) {
+    const c = src[i];
+    if (/\s/.test(c)) { i++; continue; }
+    if (c === '"') { toks.push({ t: "str", v: quoted('"', "quote") }); continue; }
+    // Optional sheet name before a cell reference
+    let sheet = null;
+    if (c === "'") {
+      sheet = quoted("'", "in a sheet name");
+      if (src[i] !== "!") throw new Error(`expected \u201c!\u201d after the sheet name '${sheet}'`);
+      i++;
+    } else {
+      const m = /^([^\s'!"(),;&=<>+\-*/{}:$]+)!/.exec(src.slice(i));
+      if (m) { sheet = m[1]; i += m[0].length; }
+    }
+    const rest = src.slice(i);
+    const rm = /^\$?([A-Za-z]{1,3})(\$?)(\d*)(?::\$?([A-Za-z]{1,3})\$?(\d*))?(?![\w(.])/.exec(rest);
+    if (rm && (sheet !== null || rm[3] || rm[4])) {
+      const sheetText = sheet === null ? "" : (c === "'" ? `'${sheet.replace(/'/g, "''")}'` : sheet) + "!";
+      // absRow: the row is locked with $ (like B$1): a fixed cell on purpose, not a row typo
+      toks.push({ t: "ref", sheet, col: rm[1].toUpperCase(), row: rm[3] ? +rm[3] : null, absRow: rm[2] === "$", text: sheetText + rm[0] });
+      i += rm[0].length;
+      continue;
+    }
+    if (sheet !== null) throw new Error(`expected a cell like J2 after \u201c${sheet}!\u201d`);
+    let m;
+    if ((m = /^([A-Za-z_][\w.]*)\s*\(/.exec(rest))) { toks.push({ t: "func", v: m[1].toUpperCase() }); i += m[0].length; continue; }
+    if ((m = /^(TRUE|FALSE|VRAI|FAUX)(?![\w(])/i.exec(rest))) { toks.push({ t: "bool", v: /^(TRUE|VRAI)$/i.test(m[1]) }); i += m[0].length; continue; }
+    if ((m = (semicolons ? /^\d+(?:[.,]\d+)?/ : /^\d+(?:\.\d+)?/).exec(rest))) { toks.push({ t: "num", v: m[0].replace(",", ".") }); i += m[0].length; continue; }
+    if ((m = /^(<>|<=|>=|[=<>&+\-*/()])/.exec(rest))) { toks.push({ t: "op", v: m[1] }); i += m[0].length; continue; }
+    if (c === ";" || c === ",") { toks.push({ t: "sep", v: c }); i++; continue; }
+    throw new Error(`unexpected \u201c${rest.slice(0, 12)}\u201d`);
+  }
+  return toks;
+}
+
+function parseFormula(src) {
+  src = src.trim();
+  if (!src.startsWith("=")) throw new Error("a formula starts with \u201c=\u201d");
+  const toks = tokenizeFormula(src.slice(1));
+  let p = 0;
+  const peek = () => toks[p];
+  const isOp = (...v) => peek()?.t === "op" && v.includes(peek().v);
+  const tokText = (k) => k ? (k.text ?? (k.t === "str" ? `"${k.v}"` : k.t === "func" ? k.v + "(" : String(k.v))) : "end of formula";
+  function expr() {
+    let l = concat();
+    while (isOp("=", "<>", "<", ">", "<=", ">=")) { const op = toks[p++].v; l = { t: "bin", op, l, r: concat() }; }
+    return l;
+  }
+  function concat() {
+    let l = add();
+    while (isOp("&")) { p++; l = { t: "bin", op: "&", l, r: add() }; }
+    return l;
+  }
+  function add() {
+    let l = unary();
+    while (isOp("+", "-", "*", "/")) { const op = toks[p++].v; l = { t: "bin", op, l, r: unary() }; }
+    return l;
+  }
+  function unary() { if (isOp("-")) { p++; return { t: "neg", e: unary() }; } return primary(); }
+  function primary() {
+    const k = toks[p++];
+    if (!k) throw new Error("the formula ends too early");
+    if (["str", "num", "bool", "ref"].includes(k.t)) return k;
+    if (k.t === "func") {
+      const args = [];
+      if (!isOp(")")) {
+        for (;;) {
+          if (peek()?.t === "sep") { args.push({ t: "str", v: "" }); p++; continue; }
+          args.push(expr());
+          if (peek()?.t === "sep") { p++; if (isOp(")")) args.push({ t: "str", v: "" }); else continue; }
+          break;
+        }
+      }
+      if (!isOp(")")) throw new Error(`missing \u201c)\u201d to close ${k.v}( (found ${tokText(peek())})`);
+      p++;
+      return { t: "call", name: k.v, args };
+    }
+    if (k.t === "op" && k.v === "(") {
+      const e = expr();
+      if (!isOp(")")) throw new Error("missing \u201c)\u201d");
+      p++;
+      return e;
+    }
+    throw new Error(`unexpected \u201c${tokText(k)}\u201d`);
+  }
+  const ast = expr();
+  if (p < toks.length) throw new Error(`unexpected \u201c${tokText(toks[p])}\u201d`);
+  return ast;
+}
+
+/** Short readable version of a formula piece, for error messages. */
+function astText(a) {
+  if (!a) return "";
+  switch (a.t) {
+    case "str": return `"${a.v}"`;
+    case "num": return a.v;
+    case "bool": return a.v ? "TRUE" : "FALSE";
+    case "ref": return a.text;
+    case "neg": return "-" + astText(a.e);
+    case "bin": return astText(a.l) + a.op + astText(a.r);
+    case "call": { const s = `${a.name}(${a.args.map(astText).join("; ")})`; return s.length > 70 ? s.slice(0, 67) + "\u2026)" : s; }
+  }
+  return "?";
+}
+
+/** sed-style replacement (\1, &) <-> Google Sheets REGEXREPLACE replacement ($1, $0). */
+function re2ToSed(r) {
+  let out = "";
+  for (let i = 0; i < r.length; i++) {
+    const c = r[i];
+    if (c === "\\" && i + 1 < r.length) { const d = r[++i]; out += d === "\\" ? "\\\\" : d === "&" ? "\\&" : d; }
+    else if (c === "$" && /\d/.test(r[i + 1] || "")) { const d = r[++i]; out += d === "0" ? "&" : "\\" + d; }
+    else if (c === "&") out += "\\&";
+    else out += c;
+  }
+  return out;
+}
+function sedToRe2(s) {
+  let out = "";
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === "\\" && i + 1 < s.length) {
+      const d = s[++i];
+      out += /\d/.test(d) ? "$" + d : d === "n" ? "\n" : d === "t" ? "\t" : d === "\\" ? "\\\\" : d === "$" ? "\\$" : d;
+    } else if (c === "&") out += "$0";
+    else if (c === "$") out += "\\$";
+    else out += c;
+  }
+  return out;
+}
+
+/** Parts of a JavaScript pattern that Google Sheets (RE2) doesn't support, in plain words; null if none. */
+function re2Problem(p) {
+  if (/\(\?<?[=!]/.test(p)) return "a look-ahead or look-behind ((?=\u2026), (?!\u2026)\u2026)";
+  if (/(^|[^\\])(\\\\)*\\[1-9]/.test(p)) return "a back-reference (\\1\u2026) inside the pattern";
+  if (/(^|[^\\])(\\\\)*\\(c[A-Za-z]|u\{)/.test(p)) return "\\c or \\u{\u2026}";
+  return null;
+}
+/** A Google Sheets (RE2) pattern written the JavaScript way, or an error in plain words. */
+function re2ToJs(p) {
+  if (/\[\[:\w+:\]\]/.test(p)) throw new Error(`the pattern ${p} uses a class like [[:alpha:]], which Swizzle doesn't understand: write it as [a-zA-Z] instead`);
+  if (/(^|[^\\])(\\\\)*\\[pP]/.test(p)) throw new Error(`the pattern ${p} uses \\p{\u2026} (Unicode classes), which Swizzle doesn't understand yet`);
+  if (/(^|[^\\])(\\\\)*\\C/.test(p)) throw new Error(`the pattern ${p} uses \\C, which Swizzle doesn't understand`);
+  return p.replace(/\(\?P</g, "(?<").replace(/(^|[^\\])((?:\\\\)*)\\A/g, "$1$2^").replace(/(^|[^\\])((?:\\\\)*)\\z/g, "$1$2$");
+}
+
+/**
+ * Turn one Google Sheets formula into a column.
+ * Returns { target, warnings, sheets:Set, sep }.
+ */
+function formulaToTarget(name, src, mainRow = null) {
+  if (!source) throw new Error("add the responses file in step 1 first, so column letters like J can be matched to the questions");
+  const ast = parseFormula(src);
+  const refs = [];       // every cell reference seen, to check rows and sheet names
+  const warnings = [];
+  const fail = (msg) => { throw new Error(msg); };
+  // Functions around a cell that don't change which answer it is. `removed` collects their names.
+  const unwrapText = (a, removed) => {
+    while (a.t === "call" && ["TRIM", "LOWER", "UPPER", "PROPER", "CLEAN", "TO_TEXT"].includes(a.name) && a.args.length === 1) { removed?.push(a.name); a = a.args[0]; }
+    return a;
+  };
+  const refOf = (a, what) => {
+    a = unwrapText(a);
+    if (a.t !== "ref") fail(`${what} must be a cell of the responses sheet, like J2 (found ${astText(a)})`);
+    const ref = allRefs()[letterIndex(a.col)];
+    if (!ref) fail(`there is no column ${a.col} in the responses file (the last one is ${colLetter(source.headers.length - 1)})`);
+    refs.push(a);
+    return cloneRef(ref);
+  };
+  const constStr = (a) => {
+    if (a.t === "str") return a.v;
+    if (a.t === "num") return a.v;
+    if (a.t === "call" && a.name === "CHAR" && a.args.length === 1 && a.args[0].t === "num") return String.fromCharCode(+a.args[0].v);
+    if (a.t === "bin" && a.op === "&") { const l = constStr(a.l), r = constStr(a.r); return l === null || r === null ? null : l + r; }
+    return null;
+  };
+  const strArg = (a, fn) => { const s = constStr(a); if (s === null) fail(`${fn}(\u2026) can only use text in quotes here (found ${astText(a)})`); return s; };
+  const caseNote = (names) => {
+    const c = names.filter((n) => ["UPPER", "LOWER", "PROPER"].includes(n));
+    if (c.length) warnings.push(`${c[0]}(\u2026) was ignored: Swizzle copies the answer as it is, without changing upper/lower case.`);
+    if (names.includes("CLEAN")) warnings.push("CLEAN(\u2026) was ignored.");
+  };
+  const simpleVal = (a, inRules = false) => {
+    // J2&"" is a common way of turning an answer into text: it is just J2
+    if (a.t === "bin" && a.op === "&" && constStr(a.r) === "" && constStr(a.l) === null) return simpleVal(a.l, inRules);
+    if (a.t === "bin" && a.op === "&" && constStr(a.l) === "" && constStr(a.r) === null) return simpleVal(a.r, inRules);
+    const s = constStr(a);
+    if (s !== null) return s === "" ? emptyVal() : { kind: "fixed", src: null, text: s };
+    const removed = [];
+    if (unwrapText(a, removed).t === "ref") {
+      caseNote(removed);
+      if (inRules && removed.includes("TRIM")) warnings.push("TRIM(\u2026) around a result was ignored: spaces around that answer are kept.");
+      return { kind: "column", src: refOf(a, "the result"), text: "" };
+    }
+    if ((a.t === "bin" && a.op === "&") || (a.t === "call" && ["CONCATENATE", "CONCAT", "JOIN", "TEXTJOIN"].includes(a.name))) fail("joining several answers with \u201c&\u201d (or CONCATENATE) is not supported yet");
+    fail(`a result can only be a question (like J2) or a text in quotes, not ${astText(a)}`);
+  };
+  const regexLiteral = (s) => s.replace(/^\(\?i\)/, "");
+  // A rule for "the answer is …"; an empty text means "is empty (no answer)"
+  const isRule = (ref, value) => value.trim() === "" ? { when: ref, op: "empty", value: "" } : { when: ref, op: "is", value };
+  const parseCond = (c) => {
+    if (c.t === "bin" && c.op === "=") {
+      const lr = unwrapText(c.l).t === "ref", rr = unwrapText(c.r).t === "ref";
+      if (lr && !rr) return isRule(refOf(c.l), strArg(c.r, "the condition"));
+      if (rr && !lr) return isRule(refOf(c.r), strArg(c.l, "the condition"));
+    }
+    if (c.t === "call" && c.name === "ISBLANK" && c.args.length === 1) return { when: refOf(c.args[0], "ISBLANK(\u2026)"), op: "empty", value: "" };
+    if (c.t === "call" && c.name === "EXACT" && c.args.length === 2) {
+      const [x, y] = c.args;
+      warnings.push("EXACT(\u2026) is case-sensitive; Swizzle ignores upper/lower case");
+      return unwrapText(x).t === "ref" ? isRule(refOf(x), strArg(y, "EXACT")) : isRule(refOf(y), strArg(x, "EXACT"));
+    }
+    if (c.t === "call" && c.name === "ISNUMBER" && c.args.length === 1) {
+      const s = c.args[0];
+      if (s.t === "call" && (s.name === "SEARCH" || s.name === "FIND") && s.args.length === 2) {
+        let v = strArg(s.args[0], s.name);
+        if (s.name === "FIND") warnings.push("FIND(\u2026) is case-sensitive; Swizzle ignores upper/lower case");
+        else {
+          // In SEARCH, ? and * are wildcards and ~ escapes them; Swizzle looks for the text as it is
+          if (/(^|[^~])(~~)*[*?]/.test(v)) warnings.push(`In Google Sheets, ? and * in SEARCH("${v}"; \u2026) are wildcards; Swizzle looks for them as they are.`);
+          v = v.replace(/~([~*?])/g, "$1");
+        }
+        return { when: refOf(s.args[1]), op: "contains", value: v };
+      }
+    }
+    if (c.t === "call" && c.name === "REGEXMATCH" && c.args.length === 2) {
+      const raw = strArg(c.args[1], "REGEXMATCH");
+      const pat = regexLiteral(raw);
+      if (/[\\^$.|?*+()[\]{}]/.test(pat)) fail(`REGEXMATCH with a pattern (${pat}) is not supported; only plain text like REGEXMATCH(J2; "conf")`);
+      if (pat === raw && /[a-z]/i.test(pat)) warnings.push(`REGEXMATCH(\u2026; "${pat}") is case-sensitive in Google Sheets (unless the pattern starts with (?i)); Swizzle ignores upper/lower case`);
+      return { when: refOf(c.args[0]), op: "contains", value: pat };
+    }
+    fail(`this condition is not supported: ${astText(c)}. Use J2="answer" or ISNUMBER(SEARCH("text"; J2))`);
+  };
+
+  const t = newTarget(name);
+  const reps = [];
+  let node = ast;
+  // Peel the wrappers, from the outside in
+  for (;;) {
+    if (node.t !== "call") break;
+    const N = node.name, a = node.args;
+    if (N === "ARRAYFORMULA" && a.length === 1) { node = a[0]; continue; }
+    if ((N === "IFERROR" || N === "IFNA") && a.length >= 1 && a.length <= 2) {
+      const fb = a[1] ? constStr(a[1]) : "";
+      if (fb !== "") warnings.push(`the fallback value of ${N}(\u2026) was ignored`);
+      node = a[0]; continue;
+    }
+    if (N === "SUBSTITUTE" && (a.length === 3 || a.length === 4)) {
+      if (a.length === 4) warnings.push("SUBSTITUTE(\u2026) with an occurrence number: Swizzle replaces every occurrence");
+      reps.push({ find: strArg(a[1], N), with: strArg(a[2], N), regex: false, flags: "g" });
+      node = a[0]; continue;
+    }
+    if (N === "REGEXREPLACE" && a.length === 3) {
+      let pat = re2ToJs(strArg(a[1], N)), flags = "g";
+      const fm = /^\(\?([a-zA-Z]+)\)/.exec(pat);
+      if (fm && /^[ims]+$/.test(fm[1])) { flags += fm[1]; pat = pat.slice(fm[0].length); }
+      const r = { find: pat, with: re2ToSed(strArg(a[2], N)), regex: true, flags: cleanFlags(flags) };
+      const err = regexError(r);
+      if (err) fail(`the pattern of REGEXREPLACE is not understood: ${err}`);
+      reps.push(r);
+      node = a[0]; continue;
+    }
+    if (N === "TRIM" && a.length === 1) {
+      // Like Google Sheets' TRIM: remove the spaces around, and squeeze repeated spaces
+      reps.push({ find: " {2,}", with: " ", regex: true, flags: "g" }, { find: "^\\s+|\\s+$", with: "", regex: true, flags: "g" });
+      node = a[0]; continue;
+    }
+    if (N === "TO_TEXT" && a.length === 1) { node = a[0]; continue; }
+    if (["UPPER", "LOWER", "PROPER", "CLEAN"].includes(N) && a.length === 1) { caseNote([N]); node = a[0]; continue; }
+    break;
+  }
+  t.replace = reps.reverse();
+
+  let hasDefault = false;
+  const addCase = (cond, val) => {
+    if (cond.t === "bool" && cond.v) { t.otherwise = simpleVal(val, true); hasDefault = true; return false; }
+    const c = parseCond(cond);
+    if (!t.when) t.when = c.when;
+    else if (refKey(t.when) !== refKey(c.when)) {
+      fail(`the conditions look at different questions (${colLetter(refIndex(t.when))} and ${colLetter(refIndex(c.when))}); Swizzle can only look at one question per column`);
+    }
+    t.rules.push({ op: c.op, value: c.value, val: simpleVal(val, true) });
+    return true;
+  };
+
+  if (node.t === "call" && node.name === "IFS") {
+    if (node.args.length < 2 || node.args.length % 2) fail("IFS(\u2026) needs pairs of condition; result");
+    t.kind = "rules";
+    for (let k = 0; k < node.args.length; k += 2) if (!addCase(node.args[k], node.args[k + 1])) break;
+    if (!hasDefault) warnings.push("This IFS(\u2026) has no final TRUE; \u2026: in Google Sheets, answers that match no condition show #N/A. Swizzle leaves them blank.");
+  } else if (node.t === "call" && node.name === "IF") {
+    t.kind = "rules";
+    let n = node;
+    for (;;) {
+      if (n.args.length < 2 || n.args.length > 3) fail("IF(\u2026) needs a condition, a result, and optionally a result when it doesn't match");
+      if (!addCase(n.args[0], n.args[1])) break;
+      const e = n.args[2];
+      if (!e) { warnings.push("An IF(\u2026) has no value for when the condition is false: Google Sheets shows FALSE there. Swizzle leaves it blank."); break; }
+      if (e.t === "call" && e.name === "IF") { n = e; continue; }
+      t.otherwise = simpleVal(e, true);
+      break;
+    }
+  } else if (node.t === "call" && node.name === "SWITCH") {
+    const [subj, ...rest] = node.args;
+    if (!subj || rest.length < 2) fail("SWITCH(\u2026) needs a question, then pairs of answer; result");
+    t.kind = "rules";
+    t.when = refOf(subj, "the first argument of SWITCH");
+    for (let k = 0; k + 1 < rest.length; k += 2) {
+      const c = isRule(null, strArg(rest[k], "SWITCH"));
+      t.rules.push({ op: c.op, value: c.value, val: simpleVal(rest[k + 1], true) });
+    }
+    if (rest.length % 2) t.otherwise = simpleVal(rest[rest.length - 1], true);
+    else warnings.push("This SWITCH(\u2026) has no default value: in Google Sheets, other answers show #N/A. Swizzle leaves them blank.");
+  } else {
+    Object.assign(t, simpleVal(node));
+  }
+  if (t.kind === "rules" && !t.when) { const o = t.otherwise; t.kind = o.kind; t.src = o.src; t.text = o.text; t.otherwise = emptyVal(); }
+
+  const cells = refs.filter((r) => r.row !== null && !r.absRow);
+  if (mainRow == null) mainRow = mostCommonRow(cells);
+  const rw = rowWarning(cells, mainRow);
+  if (rw) warnings.push(rw);
+  return { target: t, warnings, cells, sheets: new Set(refs.map((r) => r.sheet ?? "")), sep: /;/.test(src.replace(/"(?:[^"]|"")*"/g, "")) ? ";" : "," };
+}
+
+function mostCommonRow(cells) {
+  const count = new Map();
+  cells.forEach((r) => count.set(r.row, (count.get(r.row) || 0) + 1));
+  return count.size ? [...count.entries()].sort((a, b) => b[1] - a[1])[0][0] : null;
+}
+/** Every reference should point at the same row of the responses sheet (e.g. J134 next to J133 is a typo). */
+function rowWarning(cells, main) {
+  if (main == null) return null;
+  const odd = [...new Set(cells.filter((r) => r.row !== main).map((r) => r.col + r.row))];
+  if (!odd.length) return null;
+  return `${odd.join(", ")} ${odd.length > 1 ? "point" : "points"} to another row than the other formulas (row ${main}). This is probably a mistake in the sheet: Swizzle always reads the same row for every column.`;
+}
+
+/** Tab-separated text copied from a spreadsheet. Only cells that start with a quote are quoted. */
+function parseTSV(text) {
+  const rows = [];
+  let row = [], i = 0;
+  const n = text.length;
+  while (i <= n) {
+    let f = "";
+    if (text[i] === '"') {
+      i++;
+      for (;;) {
+        if (i >= n) break;
+        if (text[i] === '"') { if (text[i + 1] === '"') { f += '"'; i += 2; continue; } i++; break; }
+        f += text[i++];
+      }
+      while (i < n && text[i] !== "\t" && text[i] !== "\n") f += text[i++];
+    } else {
+      while (i < n && text[i] !== "\t" && text[i] !== "\n") f += text[i++];
+    }
+    row.push(f);
+    if (i >= n) { rows.push(row); break; }
+    if (text[i] === "\n") { rows.push(row); row = []; }
+    i++;
+  }
+  return rows.filter((r) => r.some((v) => v.trim() !== ""));
+}
+
+/** Work out which pasted cells are names and which are formulas. Returns [{name, formula}] or throws. */
+function parseFormulaPaste(text) {
+  text = text.replace(/\r\n?/g, "\n");
+  const rows = parseTSV(text);
+  const isF = (c) => c.trim().startsWith("=");
+  if (!rows.length) throw new Error("Paste the cells copied from Google Sheets first.");
+  const anyFormula = rows.some((r) => r.some(isF));
+  if (!anyFormula) throw new Error("No formulas found: these look like values. In Google Sheets, choose View \u2192 Show \u2192 Formulas (or press Ctrl+`) before copying.");
+  // "Name <tab> formula" on each line (copied vertically, or typed), even if the first one has no formula
+  const vertical = rows.every((r) => r.length >= 2 && !isF(r[0]) && (isF(r[1]) || !r[1].trim()));
+  if (vertical && rows.length >= 2 && rows.some((r) => isF(r[1])) && rows.every((r) => r.length === 2)) {
+    return rows.map((r) => ({ name: r[0].replace(/\s+/g, " ").trim(), formula: r[1].trim() }));
+  }
+  // Header row + formula row (copied horizontally)
+  if (rows.length >= 2 && !rows[0].some(isF)) {
+    const frow = rows.slice(1).find((r) => r.some(isF));
+    return rows[0].map((h, i) => ({ name: h.replace(/\s+/g, " ").trim(), formula: (frow[i] || "").trim() }))
+      .filter((x) => x.name || x.formula);
+  }
+  // "Name <tab> formula" on each line (copied vertically, or typed)
+  if (vertical) {
+    return rows.map((r) => ({ name: r[0].replace(/\s+/g, " ").trim(), formula: r[1].trim() }));
+  }
+  // Only formulas
+  const cells = rows.flat().filter((c) => c.trim());
+  let k = 0;
+  return cells.map((c) => isF(c) ? { name: `Column ${++k}`, formula: c.trim() } : { name: c.trim(), formula: "" });
+}
+
+let lastSheetsImport = null;
+function importFormulas(text, replaceAll) {
+  let pairs;
+  try { pairs = parseFormulaPaste(text); }
+  catch (e) { lastSheetsImport = { fatal: e.message }; renderSheetsResult(); return; }
+  if (!source) { lastSheetsImport = { fatal: "Add the responses file in step 1 first: column letters like J are matched to the questions of that file." }; renderSheetsResult(); return; }
+  const results = [], imported = [], sheets = new Map(), seps = { ";": 0, ",": 0 };
+  // The row most formulas point to (row-number typos are judged against it)
+  // (only cells of the sheet used most, i.e. the responses sheet, and not rows locked with $ like B$1)
+  let allCells = [];
+  for (const { formula } of pairs) {
+    if (!formula.startsWith("=")) continue;
+    try { allCells.push(...tokenizeFormula(formula.slice(1)).filter((k) => k.t === "ref" && k.row !== null && !k.absRow)); } catch {}
+  }
+  const sheetCount = new Map();
+  allCells.forEach((k) => sheetCount.set(k.sheet ?? "", (sheetCount.get(k.sheet ?? "") || 0) + 1));
+  const mainSheet = [...sheetCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  allCells = allCells.filter((k) => (k.sheet ?? "") === mainSheet);
+  const mainRow = mostCommonRow(allCells);
+  for (const { name, formula } of pairs) {
+    if (!formula) { results.push({ name, status: "blank" }); imported.push(newTarget(name)); continue; }
+    if (!formula.startsWith("=")) {
+      const t = newTarget(name);
+      Object.assign(t, { kind: "fixed", text: formula });
+      results.push({ name, status: "ok", warnings: ["this cell is a text, not a formula: the same text is put on every row"] });
+      imported.push(t);
+      continue;
+    }
+    try {
+      const r = formulaToTarget(name, formula, mainRow);
+      r.sheets.forEach((s) => sheets.set(s, (sheets.get(s) || 0) + 1));
+      seps[r.sep]++;
+      results.push({ name, status: "ok", warnings: r.warnings });
+      imported.push(r.target);
+    } catch (e) {
+      results.push({ name, status: "error", msg: e.message, formula });
+      imported.push(newTarget(name));
+    }
+  }
+  const named = [...sheets.keys()].filter(Boolean);
+  const notes = [];
+  if (named.length > 1) notes.push(`The formulas use several sheets (${named.map((s) => `\u201c${s}\u201d`).join(", ")}). Swizzle read all of them as columns of your responses file \u2014 check the result.`);
+  if (sheets.has("") && named.length) notes.push("Some references don't name a sheet: they were read as columns of the responses file too.");
+
+  if (replaceAll) {
+    if (targets.length && !confirm(`Replace your ${targets.length} current columns with the ${imported.length} imported ones?`)) return;
+    targets = imported;
+  } else {
+    const used = new Set(); // each existing row is updated at most once (two pasted columns with the same name)
+    imported.forEach((nt, j) => {
+      const res = results[j];
+      const k = targets.findIndex((t, i) => !used.has(i) && nt.name.trim() && t.name.trim().toLowerCase() === nt.name.trim().toLowerCase());
+      if (k >= 0) {
+        used.add(k);
+        if (res.status === "ok") { targets[k] = { ...nt, id: targets[k].id }; res.updated = true; }
+        else res.kept = true;
+      } else { used.add(targets.length); targets.push(nt); }
+    });
+  }
+  // Remember the sheet name and separator for the export
+  const st = sheetsSettings();
+  if (named.length) st.sheet = [...sheets.entries()].filter(([s]) => s).sort((a, b) => b[1] - a[1])[0][0];
+  if (seps[";"] || seps[","]) st.sep = seps[";"] >= seps[","] ? ";" : ",";
+  if (mainRow) st.row = mainRow;
+  saveSheetsSettings(st);
+  lastSheetsImport = { results, notes };
+  render();
+  renderSheetsResult();
+  const bad = results.filter((r) => r.status === "error").length;
+  toast(`Imported ${plural(results.length - bad, "column")}` + (bad ? `, ${bad} need${bad === 1 ? "s" : ""} your attention` : ""));
+}
+
+function renderSheetsResult() {
+  const ul = $("#sheetsResult");
+  const r = lastSheetsImport;
+  if (!r) { ul.hidden = true; return; }
+  const items = [];
+  if (r.fatal) items.push(el("li", { class: "bad" }, r.fatal));
+  for (const n of r.notes || []) items.push(el("li", { class: "warn" }, n));
+  for (const x of r.results || []) {
+    const label = el("strong", {}, x.name || "(no name)");
+    if (x.status === "blank") {
+      items.push(el("li", {}, "\u2013 ", label, x.kept ? " \u2014 no formula in this cell: your existing row was kept as it is" : " \u2014 no formula in this cell: added as a blank column"));
+    } else if (x.status === "ok") {
+      items.push(el("li", { class: x.warnings.length ? "warn" : "good" },
+        x.warnings.length ? "\u26a0 " : "\u2713 ", label, x.updated ? " (updated)" : "",
+        x.warnings.length ? el("div", { class: "small" }, x.warnings.join(" ")) : null));
+    } else {
+      items.push(el("li", { class: "bad" }, "\u2717 ", label,
+        x.kept ? " (your existing row was kept)" : " (added as a blank row)",
+        el("div", { class: "small" }, x.msg),
+        x.formula ? el("div", { class: "small mono" }, x.formula.length > 160 ? x.formula.slice(0, 157) + "\u2026" : x.formula) : null));
+    }
+  }
+  ul.replaceChildren(...items);
+  ul.hidden = !items.length;
+}
+
+/* ---------- Export ---------- */
+function sheetsSettings() {
+  let s = {};
+  try { s = JSON.parse(localStorage.getItem(LS_SHEETS) || "{}") || {}; } catch {}
+  return { sheet: typeof s.sheet === "string" ? s.sheet : "R\u00e9ponses au formulaire 1", row: Number.isInteger(s.row) && s.row > 0 ? s.row : 2, sep: s.sep === "," ? "," : ";" };
+}
+function saveSheetsSettings(s) { try { localStorage.setItem(LS_SHEETS, JSON.stringify(s)); } catch {} }
+
+/** One formula per column. Returns [{name, formula, error, notes}]. */
+function targetsToFormulas({ sheet, row, sep }, list = targets) {
+  const S = sep + " ";
+  const q = (s) => String(s).split("\n").map((x) => '"' + x.replace(/"/g, '""') + '"').join("&CHAR(10)&");
+  const pre = sheet ? (/^[A-Za-z_][A-Za-z0-9_]*$/.test(sheet) && !/^[A-Za-z]{1,3}\d+$/.test(sheet) ? sheet : "'" + sheet.replace(/'/g, "''") + "'") + "!" : "";
+  return list.map((t) => {
+    const notes = [];
+    try {
+      const R = (ref) => {
+        const i = refIndex(ref);
+        if (i < 0) throw new Error(source ? `the question \u201c${ref.name}\u201d is not in the responses file` : "add the responses file in step 1 to get the column letters");
+        return pre + colLetter(i) + row;
+      };
+      const V = (v) => v.kind === "column" && v.src ? R(v.src) : v.kind === "fixed" && v.text !== "" ? q(v.text) : '""';
+      let f;
+      if (t.kind === "rules" && t.when) {
+        const parts = [];
+        // The answer as Swizzle compares it: TO_TEXT gives the text shown in the cell (dates stay "03/11/2026",
+        // numbers become text so 5 = "5"), TRIM removes the spaces around it and squeezes repeated spaces
+        const ans = `TRIM(TO_TEXT(${R(t.when)}))`;
+        for (const r of t.rules) {
+          if (r.op === "empty") { parts.push(`${ans}=""`, V(r.val)); continue; }
+          const val = r.value.trim().replace(/ {2,}/g, " ");
+          if (!val) continue;
+          // In SEARCH, ? and * are wildcards and ~ escapes them: Swizzle looks for the text as it is
+          parts.push(r.op === "contains" ? `ISNUMBER(SEARCH(${q(val.replace(/[~*?]/g, "~$&"))}${S}${ans}))` : `${ans}=${q(val)}`, V(r.val));
+        }
+        f = parts.length ? `IFS(${[...parts, "TRUE", V(t.otherwise)].join(S)})` : V(t.otherwise);
+      } else f = V(t.kind === "rules" ? t.otherwise : t);
+      let isText = false; // REGEXREPLACE fails on numbers and dates: turn the value into text first
+      for (const r of t.replace) {
+        if (!r.find) continue;
+        if (regexError(r)) { notes.push(`The replacement of \u201c${r.find}\u201d was left out: its pattern isn't valid.`); continue; }
+        if (!r.regex) { f = `SUBSTITUTE(${f}${S}${q(r.find)}${S}${q(r.with)})`; isText = true; continue; }
+        const fl = cleanFlags(r.flags);
+        if (!fl.includes("g")) notes.push(`Google Sheets always replaces every match of s/${r.find}/\u2026/`);
+        const re2 = re2Problem(r.find);
+        if (re2) notes.push(`The pattern ${r.find} uses ${re2}, which Google Sheets doesn't understand: the formula will show an error.`);
+        const inline = fl.replace(/[gu]/g, "");
+        if (!isText) f = `TO_TEXT(${f})`;
+        f = `REGEXREPLACE(${f}${S}${q((inline ? `(?${inline})` : "") + r.find)}${S}${q(sedToRe2(r.with))})`;
+        isText = true;
+      }
+      return { name: t.name, formula: "=" + f, error: null, notes };
+    } catch (e) {
+      return { name: t.name, formula: "", error: e.message, notes };
+    }
+  });
+}
+
+/** First row: column names (kept as text even if they start with = + - @); other rows: formulas. */
+function sheetsExportTSV(rows) {
+  const cell = (v) => /[\t\n]|^"/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  return rows.map((r, k) => r.map((v) => k === 0 ? sheetCell(v) : cell(v)).join("\t")).join("\n");
+}
+
+function currentSheetsOptions() {
+  const row = parseInt($("#sheetsRow").value, 10);
+  return { sheet: $("#sheetsName").value.trim(), row: row > 0 ? row : 2, sep: $("#sheetsSep").value === "," ? "," : ";" };
+}
+
+async function copyText(text, okMsg) {
+  try { await navigator.clipboard.writeText(text); toast(okMsg); }
+  catch { toast("Your browser didn't allow copying. Select the text and copy it by hand."); }
+}
+
+function renderSheetsExport() {
+  if (!$("#sheetsView").open) return;
+  const list = targetsToFormulas(currentSheetsOptions());
+  const box = $("#sheetsOut");
+  const errs = list.filter((x) => x.error).length;
+  $("#sheetsCopyAll").disabled = !list.length || errs === list.length;
+  $("#sheetsExportInfo").textContent = !list.length ? "Add some columns first."
+    : errs ? `${plural(errs, "column")} can't be written as a formula yet (see below); they will be left empty.` : "";
+  box.replaceChildren(...list.map((x) => el("div", { class: "fx" + (x.error ? " bad" : "") },
+    el("span", { class: "fx-name", title: x.name }, x.name || "(no name)"),
+    el("code", { class: "fx-formula", title: x.error || x.formula }, x.error ? x.error : x.formula),
+    el("button", { class: "small", disabled: !!x.error, onclick: () => copyText(x.formula, `Formula for \u201c${x.name}\u201d copied`) }, "Copy"),
+    x.notes.length ? el("div", { class: "small warn fx-note" }, x.notes.join(" ")) : null,
+  )));
+}
+
+/* ---------- File loading ---------- */
+/**
+ * Read a .csv/.tsv file as text. Refuses spreadsheet files (Excel, LibreOffice), which are not text,
+ * and reads files that were not saved as UTF-8 (e.g. re-saved by Excel on Windows) with the Windows
+ * encoding so that accents are not broken.
+ * Returns { text, delim, note } or null after telling the user what to do.
+ */
+async function readTextFile(file, howTo) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const sig = (...b) => b.every((x, i) => bytes[i] === x);
+  if (sig(0x50, 0x4b, 0x03, 0x04) || sig(0xd0, 0xcf, 0x11, 0xe0) || /\.(xlsx?|ods|numbers)$/i.test(file.name)) {
+    alert(`\u201c${file.name}\u201d is a spreadsheet file (Excel or similar), not a CSV file.\n\n${howTo}`);
+    return null;
+  }
+  if (bytes.slice(0, 4096).includes(0)) {
+    alert(`\u201c${file.name}\u201d doesn't look like a text file.\n\n${howTo}`);
+    return null;
+  }
+  let text = new TextDecoder("utf-8").decode(bytes), note = "";
+  if (text.includes("\ufffd")) {
+    text = new TextDecoder("windows-1252").decode(bytes);
+    note = "This file was not saved as UTF-8: it was read with the Windows (Excel) encoding. Check that the accents look right.";
+  }
+  return { text, delim: /\.tsv$/i.test(file.name) ? "\t" : null, note };
+}
+const CSV_HOW_TO = "In Google Sheets, choose File \u2192 Download \u2192 Comma-separated values (.csv).";
+
+async function loadSourceFile(file) {
+  if (!file) return;
+  const read = await readTextFile(file, CSV_HOW_TO);
+  if (!read) return;
+  if (textDirty && !confirm("You have edits in \u201cEdit as text\u201d that are not applied yet. With a new responses file, their column letters could point to other questions.\n\nLoad the new file and discard those text edits?")) return;
+  textDirty = false;
+  // Keep empty lines while parsing, to remember the Google Sheets row number of each response
+  const all = parseCSV(read.text, true, read.delim);
+  const isEmpty = (r) => !r.some((v) => v !== "");
+  const first = all.findIndex((r) => !isEmpty(r));
+  if (first < 0) return alert("This file looks empty. In Google Sheets, use File \u2192 Download \u2192 Comma-separated values (.csv).");
+  const headers = all[first].map((h) => h.replace(/\s+/g, " ").trim());
+  const body = [], sheetRows = [];
+  for (let i = first + 1; i < all.length; i++) {
+    if (isEmpty(all[i])) continue;
+    const x = all[i].slice(0, headers.length);
+    while (x.length < headers.length) x.push("");
+    body.push(x);
+    sheetRows.push(i + 1);
+  }
+  source = { name: file.name, headers, rows: body, sheetRows };
+  $("#outName").value = file.name.replace(/\.(csv|tsv|txt)$/i, "") + " - for Notion.csv";
+  const relinked = rebindMissing();
+  render();
+  toast([`Added ${plural(body.length, "response")}.`, relinked ? relinkedMsg(relinked) : "", read.note].filter(Boolean).join(" "));
+}
+const relinkedMsg = (n) => `${plural(n, "question")} not found by its exact title ${n === 1 ? "was" : "were"} linked to a question with almost the same title.`;
+
+async function loadNotionHeaders(file) {
+  if (!file) return;
+  const read = await readTextFile(file, "In Notion, open your database and use \u2022\u2022\u2022 \u2192 Export \u2192 Markdown & CSV, then unzip and pick the .csv file.");
+  if (!read) return;
+  if (read.note) toast(read.note);
+  const rows = parseCSV(read.text, false, read.delim);
+  if (!rows.length) return alert("This file looks empty. In Notion, open your database and use \u2022\u2022\u2022 \u2192 Export \u2192 Markdown & CSV, then unzip and pick the .csv file.");
+  const names = rows[0].map((h) => h.replace(/\s+/g, " ").trim()).filter((h) => h !== "");
+  setTargetNames(names, true);
+}
+
+function setTargetNames(names, replace) {
+  if (!names.length) return toast("No column names found. Type one name per line.");
+  if (replace && targets.length && !confirm(`Replace your ${targets.length} current columns with these ${names.length}?\n(Columns that keep the same name keep their settings.)`)) return;
+  if (replace) {
+    const prev = new Map(targets.map((t) => [t.name, t]));
+    // A full copy: two columns with the same name must not share (and edit) the same rules
+    targets = names.map((n) => prev.has(n) ? { ...structuredClone(prev.get(n)), id: uid() } : newTarget(n));
+  } else {
+    targets.push(...names.map((n) => newTarget(n)));
+  }
+  const m = autoMatch(true);
+  render();
+  toast(`${plural(names.length, "column")} added` + (source && m ? `, ${m} matched to a question automatically` : ""));
+}
+
+/* ---------- Wiring ---------- */
+const drop = $("#dropZone");
+drop.addEventListener("click", () => $("#sourceFile").click());
+drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("#sourceFile").click(); } });
+drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", (e) => { e.preventDefault(); e.stopPropagation(); drop.classList.remove("over"); loadSourceFile(e.dataTransfer.files[0]); });
+// A file dropped anywhere else on the page would open in the browser tab and leave Swizzle:
+// take it as the responses file instead (rows dragged in the table are not files)
+const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes("Files");
+document.addEventListener("dragover", (e) => { if (hasFiles(e)) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } });
+document.addEventListener("drop", (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  const f = e.dataTransfer.files[0];
+  if (f) { $("#dropZone").scrollIntoView({ behavior: "smooth", block: "center" }); loadSourceFile(f); }
+});
+$("#sourceFile").addEventListener("change", (e) => { loadSourceFile(e.target.files[0]); e.target.value = ""; });
+
+/**
+ * Only one way of starting is open at a time: "paste" (type the Notion column names),
+ * "sheets" (import Google Sheets formulas) or null (nothing open). The other ways
+ * ("all survey questions", "existing Notion database") act at once and close the others.
+ */
+let startChoice = null;
+function setStartChoice(which) {
+  startChoice = which;
+  $("#pasteBox").hidden = which !== "paste";
+  $("#notionBox").hidden = which !== "notion";
+  if ($("#sheetsView").open !== (which === "sheets")) $("#sheetsView").open = which === "sheets";
+  for (const [id, w] of [["#btnNotionHeaders", "notion"], ["#btnPaste", "paste"], ["#btnPaste2", "paste"], ["#btnFromSheets", "sheets"], ["#btnSheets2", "sheets"]]) {
+    $(id).classList.toggle("selected", which === w);
+    $(id).setAttribute("aria-expanded", String(which === w));
+  }
+}
+
+// Show the steps to export from Notion first: clicking the button alone would open a file picker with no guidance
+$("#btnNotionHeaders").addEventListener("click", () => setStartChoice(startChoice === "notion" ? null : "notion"));
+$("#notionPick").addEventListener("click", () => $("#notionFile").click());
+$("#notionCancel").addEventListener("click", () => setStartChoice(null));
+$("#notionFile").addEventListener("change", async (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) { await loadNotionHeaders(f); setStartChoice(null); } });
+
+const openPaste = () => {
+  if (startChoice === "paste") return setStartChoice(null); // clicking again closes it
+  setStartChoice("paste");
+  $("#pasteText").focus();
+};
+$("#btnPaste").addEventListener("click", openPaste);
+$("#btnPaste2").addEventListener("click", openPaste);
+$("#pasteCancel").addEventListener("click", () => setStartChoice(null));
+function pastedNames() {
+  const txt = $("#pasteText").value.replace(/\r/g, "").trim();
+  // A header row copied from a spreadsheet is tab-separated (cells with line breaks are quoted)
+  const parts = txt.includes("\t") ? (parseCSV(txt, false, "\t")[0] || []) : txt.split("\n");
+  return parts.map((s) => s.replace(/\s+/g, " ").trim()).filter(Boolean);
+}
+$("#pasteReplace").addEventListener("click", () => { setTargetNames(pastedNames(), true); setStartChoice(null); $("#pasteText").value = ""; });
+$("#pasteAppend").addEventListener("click", () => { setTargetNames(pastedNames(), false); setStartChoice(null); $("#pasteText").value = ""; });
+
+$("#btnAdd").addEventListener("click", () => {
+  targets.push(newTarget(""));
+  render();
+  const inputs = document.querySelectorAll("#mapBody input.colname");
+  inputs[inputs.length - 1]?.focus();
+});
+$("#btnFromSource").addEventListener("click", () => {
+  if (!source) return toast("Add your survey responses in step 1 first");
+  if (targets.length && !confirm("Replace your current columns with one column per survey question?")) return;
+  setStartChoice(null);
+  targets = allRefs().map((r) => newTarget(r.name, r));
+  render();
+});
+$("#btnAuto").addEventListener("click", () => { autoMatch(false); render(); });
+$("#btnClear").addEventListener("click", () => {
+  if (targets.length && !confirm("Remove all columns from the list? (Your saved setups are not affected.)")) return;
+  targets = [];
+  render();
+});
+$("#btnAddAllUnused").addEventListener("click", () => {
+  const used = usedIndexes();
+  targets.push(...allRefs().filter((r) => !used.has(r.index)).map((r) => newTarget(r.name, r)));
+  render();
+});
+
+function outputText() {
+  const { header, rows } = buildOutput();
+  return toCSV(header, rows);
+}
+$("#btnDownload").addEventListener("click", () => {
+  const issue = nameProblems();
+  if (issue && !confirm(`${issue} Notion may merge or drop these columns.\n\nDownload anyway?`)) return;
+  let name = $("#outName").value.trim() || "for-notion.csv";
+  if (!/\.csv$/i.test(name)) name += ".csv";
+  // Always start with the UTF-8 marker (BOM): Excel needs it to show accents correctly; Notion and Google Sheets ignore it.
+  download(name, "\ufeff" + outputText(), "text/csv;charset=utf-8");
+});
+/** Cell for pasting into a spreadsheet. Answers starting with = + - @ would become live formulas: a leading ' keeps them as text (and is hidden). */
+function sheetCell(v) {
+  if (/^[=+\-@]/.test(v)) v = "'" + v;
+  return /[\t\n"]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+}
+$("#btnCopy").addEventListener("click", async () => {
+  const { header, rows } = buildOutput();
+  const tsv = [header, ...rows].map((r) => r.map(sheetCell).join("\t")).join("\n");
+  try { await navigator.clipboard.writeText(tsv); toast("Copied! You can paste it into a spreadsheet."); }
+  catch { toast("Your browser didn't allow copying. Use the download button instead."); }
+});
+
+$("#btnSave").addEventListener("click", () => saveMapping(false));
+$("#btnSaveAs").addEventListener("click", () => saveMapping(true));
+$("#btnNew").addEventListener("click", newMapping);
+$("#mapName").addEventListener("input", softRender);
+$("#mapName").addEventListener("keydown", (e) => { if (e.key === "Enter") saveMapping(false); });
+$("#btnExport").addEventListener("click", exportMappings);
+$("#btnImport").addEventListener("click", () => $("#importFile").click());
+$("#importFile").addEventListener("change", (e) => { if (e.target.files[0]) importMappings(e.target.files[0]); e.target.value = ""; });
+
+$("#textArea").addEventListener("input", () => { textDirty = true; $("#textErrors").hidden = true; renderTextView(); });
+$("#textApply").addEventListener("click", () => {
+  const { targets: nt, errors } = parseText($("#textArea").value);
+  const ul = $("#textErrors");
+  if (errors.length) {
+    ul.replaceChildren(...errors.map((e) => el("li", {}, e)));
+    ul.hidden = false;
+    return;
+  }
+  if (!nt.length && targets.length && !confirm("The text is empty: remove all columns?")) return;
+  if (genText() !== textBase && !confirm("The columns were changed in the table after you started editing this text.\n\nApply the text anyway? The changes made in the table will be replaced.")) return;
+  // Keep the ids of the rows in the same position, so applying an unchanged text is not an undo step
+  nt.forEach((t, i) => { if (targets[i]) t.id = targets[i].id; });
+  targets = nt;
+  textDirty = false;
+  ul.hidden = true;
+  render();
+  toast(`Updated: ${plural(nt.length, "column")}`);
+});
+$("#textDiscard").addEventListener("click", () => { textDirty = false; $("#textErrors").hidden = true; renderTextView(); });
+
+// Google Sheets formulas
+function fillSheetsInputs() {
+  const s = sheetsSettings();
+  $("#sheetsName").value = s.sheet;
+  $("#sheetsRow").value = s.row;
+  $("#sheetsSep").value = s.sep;
+}
+const openSheets = () => {
+  if (startChoice === "sheets") return setStartChoice(null); // clicking again closes it
+  setStartChoice("sheets");
+  renderSheetsExport();
+  $("#sheetsView").scrollIntoView({ behavior: "smooth", block: "start" });
+  $("#sheetsIn").focus({ preventScroll: true });
+};
+$("#btnFromSheets").addEventListener("click", openSheets);
+$("#btnSheets2").addEventListener("click", openSheets);
+// Opening/closing the panel by its own title also counts as choosing it (and closes the others)
+$("#sheetsView").addEventListener("toggle", () => {
+  const open = $("#sheetsView").open;
+  if (open && startChoice !== "sheets") setStartChoice("sheets");
+  else if (!open && startChoice === "sheets") setStartChoice(null);
+  renderSheetsExport();
+});
+$("#sheetsImport").addEventListener("click", () => {
+  importFormulas($("#sheetsIn").value, document.querySelector('input[name="sheetsMode"]:checked').value === "replace");
+  fillSheetsInputs();
+  renderSheetsExport();
+});
+$("#sheetsClearIn").addEventListener("click", () => { $("#sheetsIn").value = ""; lastSheetsImport = null; renderSheetsResult(); });
+for (const id of ["#sheetsName", "#sheetsRow", "#sheetsSep"]) {
+  $(id).addEventListener("input", () => {
+    if (id === "#sheetsRow") { const d = $(id).value.replace(/\D/g, ""); if (d !== $(id).value) $(id).value = d; }
+    saveSheetsSettings(currentSheetsOptions()); renderSheetsExport();
+  });
+}
+$("#sheetsCopyAll").addEventListener("click", () => {
+  const list = targetsToFormulas(currentSheetsOptions());
+  copyText(sheetsExportTSV([list.map((x) => x.name), list.map((x) => x.formula)]),
+    `Copied ${plural(list.length, "column")}: paste into cell A1 of an empty sheet`);
+});
+
+// Undo / redo: buttons + the system shortcuts
+const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+$("#btnUndo").title = `Undo the last change to the columns (${isMac ? "\u2318Z" : "Ctrl+Z"})`;
+$("#btnRedo").title = `Redo (${isMac ? "\u21e7\u2318Z" : "Ctrl+Y or Ctrl+Shift+Z"})`;
+$("#btnUndo").addEventListener("click", undo);
+$("#btnRedo").addEventListener("click", redo);
+document.addEventListener("keydown", (e) => {
+  const mod = isMac ? e.metaKey : e.ctrlKey;
+  if (!mod || e.altKey) return;
+  const k = e.key.toLowerCase();
+  const wantUndo = k === "z" && !e.shiftKey;
+  const wantRedo = (k === "z" && e.shiftKey) || (k === "y" && !isMac && !e.shiftKey);
+  if (!wantUndo && !wantRedo) return;
+  // Text boxes outside the column table keep the browser's own undo for their typing
+  // (file name, setup name, text view, pasted names, Sheets formulas and options)
+  const a = document.activeElement;
+  if (a && (a.tagName === "TEXTAREA" || (a.tagName === "INPUT" && a.type === "text")) && !a.closest("#mapBody")) return;
+  e.preventDefault();
+  if (wantUndo) undo(); else redo();
+});
+
+// Keep tabs in sync if setups are edited in another tab
+window.addEventListener("storage", (e) => { if (e.key === LS_MAPS) { maps = loadMaps(); renderStorageWarning(); if (activeMapId && !maps[activeMapId]) activeMapId = null; render(); } });
+
+/* ---------- Init ---------- */
+maps = loadMaps();
+renderStorageWarning();
+fillSheetsInputs();
+restoreCurrent();
+render();
+// Ask the browser not to clear our storage when disk space is low (no prompt in most browsers).
+navigator.storage?.persist?.().catch(() => {});
+</script>
+</body>
+</html>
